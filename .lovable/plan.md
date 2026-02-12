@@ -1,54 +1,85 @@
 
 
-# Remove WhatsApp Dependency -- Direct Kitchen Orders
+# Resort Profile and Logo Setup
 
-## The Problem
-Right now, when a guest or staff places an order, the app opens WhatsApp to send the order details to the kitchen tablet. This is confusing -- the guest has to leave the ordering app, open WhatsApp, and hit send. It's an extra step that breaks the flow and can lead to missed orders.
+## Overview
+Add a complete resort profile section to the Admin Settings that serves as the "onboarding" for a new resort. This includes a logo upload (with transparent background support), resort details, and social media links -- all of which will automatically appear on invoices and the landing page.
 
-## The Solution
-**Remove the WhatsApp redirect entirely.** The order is already being saved to the database (and the kitchen tablet already receives it in real-time via the Admin Orders pipeline). WhatsApp is redundant.
+## What Gets Added
 
-Instead of opening WhatsApp after placing an order, the app will:
-1. Save the order to the database (already happens)
-2. Show a **confirmation screen** inside the app with order details, a checkmark animation, and a message like "Your order has been received!"
-3. The kitchen tablet (Admin > Orders) already picks it up instantly via realtime -- no WhatsApp needed
+### 1. Database -- New `resort_profile` table
+A single-row table storing all resort branding and contact info:
 
-**Optional: Keep WhatsApp as a backup notification** -- instead of forcing the user to open WhatsApp, send the notification silently via a backend function (no user interaction required). This can be added later if needed.
+| Field | Type | Purpose |
+|-------|------|---------|
+| id | uuid (PK) | |
+| logo_url | text | URL to uploaded logo in storage |
+| resort_name | text | e.g., "Baia Palawan" |
+| tagline | text (nullable) | Optional subtitle |
+| address | text | Full address |
+| phone | text | Main phone number |
+| contact_name | text | Primary contact person |
+| contact_number | text | Contact person's number |
+| email | text | Resort email |
+| google_map_embed | text (nullable) | Google Maps embed code |
+| google_map_url | text (nullable) | Google Maps link |
+| facebook_url | text (nullable) | |
+| instagram_url | text (nullable) | |
+| tiktok_url | text (nullable) | |
+| website_url | text (nullable) | |
+| created_at | timestamptz | |
 
-## What Changes
+### 2. Storage -- Logo bucket
+- Create a `logos` storage bucket (public) for logo uploads
+- RLS policy allows anyone to read, anyone to upload (no auth in this app)
 
-### 1. CartDrawer.tsx -- Remove WhatsApp redirect
-- Remove the `window.open(url, '_blank')` WhatsApp call after order submission
-- Instead, show a success state inside the drawer with order confirmation details
-- Add a brief confirmation view: checkmark icon, "Order Received!" message, order number, and a "Done" button that closes the drawer
+### 3. Admin Settings -- Resort Profile section
+A new section at the top of the Setup tab with:
+- **Logo upload area**: Click-to-upload with preview. Accepts PNG/SVG with transparency
+- **Resort name and tagline** inputs
+- **Address, phone, email** inputs
+- **Contact name and number** inputs
+- **Google Maps** embed code and URL inputs
+- **Social media URLs**: Facebook, Instagram, TikTok, Website -- each with its icon
+- Save button that persists everything to the `resort_profile` table
 
-### 2. CartDrawer.tsx -- Simplify validation
-- Remove the check for `kitchen_whatsapp_number` being configured (no longer blocking)
-- The settings query can stay for future use but is no longer required for order submission
+### 4. Landing Page (Index.tsx) -- Dynamic branding
+- Replace hardcoded "BAIA PALAWAN" with the resort name from the profile
+- Show the uploaded logo (rendered on the transparent/dark background)
 
-### 3. Optional cleanup
-- `src/lib/order.ts` -- Keep the file for now (the formatting functions could be reused for future receipt/print features), but it's no longer called from the cart flow
+### 5. Invoices -- Dynamic resort header
+- CartDrawer invoice header pulls resort name from the profile instead of hardcoded "Baia Palawan"
+- TabInvoice does the same
+- Logo displayed at the top of invoices
 
-### 4. Confirmation UX
-After tapping "Send to Kitchen":
-- Button shows a loading spinner briefly
-- Drawer content transitions to a confirmation view:
-  - Checkmark icon
-  - "Order Sent to Kitchen!"
-  - Summary: order type, location, item count, grand total
-  - "Place Another Order" button (closes drawer, stays on menu)
-  - "Done" button (navigates back to home)
+## File Changes
+
+| File | Change |
+|------|--------|
+| Migration SQL | Create `resort_profile` table, create `logos` storage bucket with public access |
+| `src/pages/AdminPage.tsx` | Add "Resort Profile" section in Setup tab with logo upload, all profile fields, social media inputs |
+| `src/pages/Index.tsx` | Fetch resort profile, display logo and dynamic resort name |
+| `src/components/CartDrawer.tsx` | Fetch resort profile, use dynamic name and logo in invoice header |
+| `src/components/admin/TabInvoice.tsx` | Fetch resort profile, use dynamic name and logo in tab invoice header |
 
 ## Technical Details
 
-**CartDrawer.tsx changes:**
-- Add a `submitted` state that toggles to `true` after successful database insert
-- When `submitted === true`, render the confirmation view instead of the item list
-- Remove the WhatsApp URL construction and `window.open` call
-- On drawer close or "Place Another Order", reset `submitted` to `false`
-- Keep `cart.clearCart()` on successful submission
+**Logo upload flow:**
+1. User selects an image file (PNG or SVG recommended for transparency)
+2. File is uploaded to the `logos` storage bucket via the Supabase Storage API
+3. The public URL is saved to `resort_profile.logo_url`
+4. The logo renders with a transparent background naturally since PNGs/SVGs preserve alpha channels -- no processing needed, but the UI will instruct the user to upload a transparent PNG
 
-**No database changes needed** -- the realtime pipeline already delivers orders to the kitchen tablet instantly.
+**Resort profile query (shared across pages):**
+- A reusable query with key `['resort-profile']` fetches the single row from `resort_profile`
+- Used by Index, CartDrawer, and TabInvoice
 
-**No new files needed** -- this is a simplification, not an addition.
+**Social media display:**
+- Each social link stored as a full URL
+- Rendered with the corresponding Lucide icon (Facebook, Instagram, Globe for TikTok/website)
+- Only shown if the URL is filled in
+
+**Invoice integration:**
+- The invoice header in CartDrawer and TabInvoice will show: logo (if set), resort name (from profile), and the existing order type/location badges
+- Falls back to "Resort" if no profile is configured yet
 
