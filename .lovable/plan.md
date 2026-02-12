@@ -1,93 +1,74 @@
 
-# BAIA PALAWAN — F&B Ordering System
 
-## Design Vision
-A luxury beach resort digital menu that faithfully replicates the attached printed menu: **dark navy textured background, cream/beige serif typography, dotted leader lines, seafood line-art illustrations**, and elegant minimal spacing. This is NOT a food delivery app — it's an interactive extension of the printed menu.
+# Font and Admin Improvements
 
----
-
-## Phase 1: Database & Backend Setup (Supabase Cloud)
-
-Create the following tables:
-- **settings** — kitchen WhatsApp number, breakfast hours
-- **units** — resort rooms/glamping units (name, active status)
-- **tables** — dine-in table names (name, active status)
-- **menu_items** — name, category, description, food_cost (admin-only), price, image_url, available, featured, sort_order
-- **orders** — order_type, location_detail, items (JSON), total, payment_type, status (New/Preparing/Delivered), timestamps
-
-Seed with sample menu data from the printed menu (Starters, Breakfast, Main Courses).
+## Problem Summary
+1. **Font readability**: Current fonts (Playfair Display + Cormorant Garamond) are hard to read at small sizes, especially in admin. Need a more readable hospitality-grade font globally.
+2. **Units and Tables management**: No ability to edit names or delete items -- only toggle active/inactive.
+3. **Time selection**: Plain HTML time inputs look outdated and inconsistent with the luxury aesthetic.
 
 ---
 
-## Phase 2: Start Screen
+## Changes
 
-A branded landing page with the BAIA PALAWAN identity and three entry points:
-- **View Menu as Guest** — opens the order type selector
-- **Staff Order** — prompts for passkey (5309)
-- **Admin Login** — prompts for passkey (5309)
+### 1. Global Font Upgrade
 
-Dark navy background, cream typography, matching the luxury aesthetic.
+Replace Cormorant Garamond (body font) with **Lato** -- a clean, highly readable sans-serif widely used in hospitality and hotel websites. Keep Playfair Display for display headings only (brand name, section titles).
 
----
+**Files changed:**
+- `src/index.css` -- Update Google Fonts import to load Lato instead of Cormorant Garamond
+- `tailwind.config.ts` -- Update `font-body` to use Lato
+- All pages already use `font-body` and `font-display` utility classes, so the change propagates automatically
 
-## Phase 3: Guest Order Flow
+### 2. Units Management -- Add Edit and Delete
 
-### Step 1 — Order Type Selection
-After tapping "View Menu as Guest", the user picks:
-- **Room / Glamping Unit** → dropdown populated from `units` table
-- **Dine In** → dropdown populated from `tables` table
-- **Beach Delivery** → free text input for location
-- **Walk-In Guest** → name input
+Each unit row will show:
+- The unit name (tappable to edit inline)
+- An **edit** icon button that opens an inline text field to rename
+- A **delete** icon button with confirmation
+- The existing active/inactive toggle
 
-### Step 2 — Menu Page (Core Visual Experience)
-- **Sticky category tabs** at top: Breakfast | Starters | Main Courses
-- Each section replicates the printed menu layout:
-  - Section title in elegant serif
-  - Dish name (bold) ··········· ₱Price (right-aligned)
-  - Description in smaller cream text below
-- Only items marked `available = true` are shown
-- Tapping a dish opens a **dark-themed modal** with quantity selector and "Add to Order" button
-- **Floating cart icon** (bottom-right) showing item count
+**File changed:** `src/pages/AdminPage.tsx`
+- Add edit state tracking per unit (inline rename with save/cancel)
+- Add delete with a confirmation toast or small confirm prompt
+- Wire up Supabase `.update()` for rename and `.delete()` for removal
 
-### Step 3 — Cart & Checkout
-- Cart drawer slides up (dark themed) showing all selected items, quantities, and total
-- On "Confirm Order":
-  1. Save order to Supabase `orders` table
-  2. Generate formatted WhatsApp message with order details
-  3. Redirect to WhatsApp using the kitchen number from `settings`
+### 3. Tables Management -- Add Edit and Delete
 
----
+Same pattern as units:
+- Edit (rename) button per table row
+- Delete button with confirmation
+- Keep existing active toggle
 
-## Phase 4: Staff Order Flow
+**File changed:** `src/pages/AdminPage.tsx`
 
-Same menu interface as guest, but after passkey entry (5309), staff get an additional field before checkout:
-- **Payment Type**: Charge to Room / Cash / Paid
+### 4. Time Selection -- Modern Styled Picker
 
-Order is saved with payment type and sent via WhatsApp.
+Replace the plain `<Input type="time">` fields for breakfast hours with custom styled time selectors using two side-by-side dropdowns (hour + AM/PM) that match the dark luxury theme.
+
+**File changed:** `src/pages/AdminPage.tsx`
+- Create a simple inline time picker component using Select dropdowns for hours (1-12) and period (AM/PM)
+- Style consistently with the dark navy/cream theme
 
 ---
 
-## Phase 5: Admin Dashboard
+## Technical Details
 
-Behind passkey (5309), a clean management interface with:
+**Font change in `src/index.css`:**
+- Google Fonts URL updated to: `Playfair+Display:...&family=Lato:wght@300;400;700&display=swap`
+- Body default font changed from `'Cormorant Garamond', serif` to `'Lato', sans-serif`
 
-### Resort Setup
-- Add/edit/toggle units (rooms, glamping)
-- Add/edit/toggle tables
-- Set kitchen WhatsApp number
-- Set breakfast service hours
+**Font change in `tailwind.config.ts`:**
+- `fontFamily.body` changed from `['"Cormorant Garamond"', 'serif']` to `['"Lato"', 'sans-serif']`
 
-### Menu Manager
-- Add/edit menu items (name, description, category, price, food cost, image, sort order)
-- Toggle availability and featured status
-- Food cost visible only in admin (never shown to guests)
+**Admin unit/table rows refactored to include:**
+- Inline editing state (`editingUnitId`, `editingUnitName`)
+- Edit icon triggers inline input; save on Enter or blur
+- Delete calls `supabase.from('units').delete().eq('id', id)` with a confirmation step
+- Same pattern for `resort_tables`
 
----
+**Time picker:**
+- Custom component using two `<Select>` dropdowns (hour: 1-12, period: AM/PM)
+- Converts to/from 24h format for database storage
+- Styled with existing `bg-secondary border-border text-foreground` classes
 
-## Phase 6: Responsiveness & Polish
-
-- **Mobile-first** — primary use case
-- **Tablet** — maintain elegance with slightly wider layout
-- **Desktop** — centered container with max-width, dark background fills the viewport
-- Subtle CSS seafood line-art decorative elements on menu pages
-- Smooth transitions and animations for modals and cart drawer
