@@ -1,74 +1,125 @@
 
 
-# Font and Admin Improvements
+# Kitchen Order Management & Reporting System
 
-## Problem Summary
-1. **Font readability**: Current fonts (Playfair Display + Cormorant Garamond) are hard to read at small sizes, especially in admin. Need a more readable hospitality-grade font globally.
-2. **Units and Tables management**: No ability to edit names or delete items -- only toggle active/inactive.
-3. **Time selection**: Plain HTML time inputs look outdated and inconsistent with the luxury aesthetic.
+## Overview
+Transform the Orders tab into a full kitchen workflow board (designed for tablet use by the chef), add a status pipeline for every order, and lay the groundwork for financial reporting.
 
 ---
 
-## Changes
+## 1. Database Changes
 
-### 1. Global Font Upgrade
+**Add columns to `orders` table** (migration):
+- `updated_at` (timestamptz, default now()) -- track last status change
+- `closed_at` (timestamptz, nullable) -- when order is fully closed/paid
 
-Replace Cormorant Garamond (body font) with **Lato** -- a clean, highly readable sans-serif widely used in hospitality and hotel websites. Keep Playfair Display for display headings only (brand name, section titles).
+**Add trigger**: auto-update `updated_at` on row change using the existing `update_updated_at_column()` function.
 
-**Files changed:**
-- `src/index.css` -- Update Google Fonts import to load Lato instead of Cormorant Garamond
-- `tailwind.config.ts` -- Update `font-body` to use Lato
-- All pages already use `font-body` and `font-display` utility classes, so the change propagates automatically
+**Enable Realtime** on `orders` table so the kitchen tablet auto-refreshes when new orders come in (no manual reload needed).
 
-### 2. Units Management -- Add Edit and Delete
+---
 
-Each unit row will show:
-- The unit name (tappable to edit inline)
-- An **edit** icon button that opens an inline text field to rename
-- A **delete** icon button with confirmation
-- The existing active/inactive toggle
+## 2. Orders Tab Redesign -- Kitchen Board
 
-**File changed:** `src/pages/AdminPage.tsx`
-- Add edit state tracking per unit (inline rename with save/cancel)
-- Add delete with a confirmation toast or small confirm prompt
-- Wire up Supabase `.update()` for rename and `.delete()` for removal
+Replace the current flat list with a **Kanban-style pipeline** using horizontal tabs or columns:
 
-### 3. Tables Management -- Add Edit and Delete
+```text
+ [ New ]  [ Preparing ]  [ Served ]  [ Paid ]  [ Closed ]
+```
 
-Same pattern as units:
-- Edit (rename) button per table row
-- Delete button with confirmation
-- Keep existing active toggle
+**Each order card shows:**
+- Order type and location (e.g. "DineIn -- Table 1")
+- Timestamp (relative: "2 min ago")
+- Item list with quantities
+- Total amount
+- Payment type (if staff order)
+- **Action button** to advance to next status
 
-**File changed:** `src/pages/AdminPage.tsx`
+**Status flow:**
+1. **New** -- order just placed (card highlighted in gold)
+2. **Preparing** -- chef taps "Start Preparing"
+3. **Served** -- food delivered, tap "Mark Served"
+4. **Paid** -- payment collected, tap "Mark Paid"
+5. **Closed** -- final state, sets `closed_at` timestamp
 
-### 4. Time Selection -- Modern Styled Picker
+Each transition updates the `status` column and `updated_at` in the database. Realtime subscription pushes changes to all open admin screens instantly.
 
-Replace the plain `<Input type="time">` fields for breakfast hours with custom styled time selectors using two side-by-side dropdowns (hour + AM/PM) that match the dark luxury theme.
+**Filter controls:**
+- Date filter (Today / Yesterday / All)
+- Toggle to show/hide Closed orders (hidden by default)
 
-**File changed:** `src/pages/AdminPage.tsx`
-- Create a simple inline time picker component using Select dropdowns for hours (1-12) and period (AM/PM)
-- Style consistently with the dark navy/cream theme
+---
+
+## 3. Realtime Subscription
+
+Subscribe to `postgres_changes` on the `orders` table so that:
+- When a guest or staff places a new order, it appears on the kitchen tablet immediately
+- When any admin updates a status, all other admin screens see it live
+
+This uses the existing Supabase realtime client -- no edge function needed.
+
+---
+
+## 4. Reporting Tab (New)
+
+Add a **fourth tab** to the admin dashboard: **Reports**
+
+Tabs become: `Setup | Menu | Orders | Reports`
+
+**Reports tab -- Phase 1 (this build):**
+- **Date range picker** (Today / This Week / This Month / Custom)
+- **Summary cards:**
+  - Total Revenue (sum of `total` for Closed orders)
+  - Total Orders count
+  - Average Order Value
+- **Revenue by Order Type** breakdown (Room / DineIn / Beach / WalkIn)
+- **Top Selling Items** list (parsed from order JSON items)
+
+**Reports tab -- Future-ready structure:**
+- A placeholder section labeled "Food Cost and Profit Analysis (Coming Soon)" with a note that this will use the `food_cost` field from `menu_items` to calculate margins per item and overall profit
+- A placeholder for "Tours Revenue" for when tours are added
+
+---
+
+## 5. File Changes Summary
+
+| File | Change |
+|------|--------|
+| `supabase/migrations/...` | Add `updated_at`, `closed_at` to orders; attach trigger; enable realtime |
+| `src/pages/AdminPage.tsx` | Refactor Orders tab into pipeline board with status buttons; add Reports tab; add realtime subscription |
+| `src/components/admin/OrderCard.tsx` | New component -- single order card with status action button |
+| `src/components/admin/ReportsDashboard.tsx` | New component -- revenue summary, top items, date filtering |
 
 ---
 
 ## Technical Details
 
-**Font change in `src/index.css`:**
-- Google Fonts URL updated to: `Playfair+Display:...&family=Lato:wght@300;400;700&display=swap`
-- Body default font changed from `'Cormorant Garamond', serif` to `'Lato', sans-serif`
+**Migration SQL:**
+- `ALTER TABLE orders ADD COLUMN updated_at timestamptz DEFAULT now();`
+- `ALTER TABLE orders ADD COLUMN closed_at timestamptz;`
+- `CREATE TRIGGER ... BEFORE UPDATE ON orders ... EXECUTE FUNCTION update_updated_at_column();`
+- `ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;`
 
-**Font change in `tailwind.config.ts`:**
-- `fontFamily.body` changed from `['"Cormorant Garamond"', 'serif']` to `['"Lato"', 'sans-serif']`
+**Realtime in AdminPage:**
+```typescript
+useEffect(() => {
+  const channel = supabase
+    .channel('orders-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+      qc.invalidateQueries({ queryKey: ['orders-admin'] });
+    })
+    .subscribe();
+  return () => { supabase.removeChannel(channel); };
+}, []);
+```
 
-**Admin unit/table rows refactored to include:**
-- Inline editing state (`editingUnitId`, `editingUnitName`)
-- Edit icon triggers inline input; save on Enter or blur
-- Delete calls `supabase.from('units').delete().eq('id', id)` with a confirmation step
-- Same pattern for `resort_tables`
+**Status advancement logic:**
+- Each status maps to a "next" status: New->Preparing->Served->Paid->Closed
+- On "Closed", sets `closed_at = now()`
+- Only Closed orders count toward revenue reports
 
-**Time picker:**
-- Custom component using two `<Select>` dropdowns (hour: 1-12, period: AM/PM)
-- Converts to/from 24h format for database storage
-- Styled with existing `bg-secondary border-border text-foreground` classes
+**Reports queries:**
+- Revenue: `SELECT SUM(total) FROM orders WHERE status = 'Closed' AND closed_at BETWEEN ...`
+- Top items: Parse `items` JSONB in JS after fetching closed orders for the date range
+- All calculations done client-side from fetched data (no custom DB functions needed for Phase 1)
 
