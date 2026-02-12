@@ -1,102 +1,54 @@
 
 
-# Open Tab Invoice System
+# Remove WhatsApp Dependency -- Direct Kitchen Orders
 
 ## The Problem
-Currently, every order is a one-off transaction -- the cart clears after each submission. A guest staying 3 days has no way to accumulate charges on a running tab. There's also no proper invoice/receipt format, and the 10% service charge isn't calculated.
+Right now, when a guest or staff places an order, the app opens WhatsApp to send the order details to the kitchen tablet. This is confusing -- the guest has to leave the ordering app, open WhatsApp, and hit send. It's an extra step that breaks the flow and can lead to missed orders.
 
-## How It Works
+## The Solution
+**Remove the WhatsApp redirect entirely.** The order is already being saved to the database (and the kitchen tablet already receives it in real-time via the Admin Orders pipeline). WhatsApp is redundant.
 
-### Guest Tabs
-A new `tabs` database table tracks open accounts tied to a location (e.g., "Unit 3" or "Table 1"). When a guest or staff places an order, the system checks if there's already an open tab for that location. If yes, the new order attaches to it. If not, a new tab is created automatically.
+Instead of opening WhatsApp after placing an order, the app will:
+1. Save the order to the database (already happens)
+2. Show a **confirmation screen** inside the app with order details, a checkmark animation, and a message like "Your order has been received!"
+3. The kitchen tablet (Admin > Orders) already picks it up instantly via realtime -- no WhatsApp needed
 
-```text
-Guest arrives at Unit 3
-  --> First order creates Tab #001 for "Unit 3"
-  --> Second order (next day) adds to the same tab
-  --> Third order (day 3) adds again
-  --> Staff closes tab at checkout --> Final invoice generated
-```
+**Optional: Keep WhatsApp as a backup notification** -- instead of forcing the user to open WhatsApp, send the notification silently via a backend function (no user interaction required). This can be added later if needed.
 
-### Checkout Flow Redesign
-The CartDrawer becomes a proper invoice-style review:
-- Resort header with "BAIA PALAWAN" branding
-- Itemized list with quantities, unit prices, line totals
-- Subtotal line
-- 10% Service Charge line (auto-calculated)
-- Grand Total
-- Two action buttons:
-  - **"Send to Kitchen"** -- places the order on the current tab, sends WhatsApp notification
-  - **"Close and Pay"** is only available in Admin, not during ordering
+## What Changes
 
-### Admin Tab Management
-A new **"Tabs"** section in the Admin Orders area lets staff:
-- See all open tabs with guest name/location and running total
-- Tap a tab to see every order on it (with timestamps)
-- **Close Tab** button generates the final invoice summary and marks it as settled
-- Payment method selection (Cash / Card / Charge to Room) at close-out time
+### 1. CartDrawer.tsx -- Remove WhatsApp redirect
+- Remove the `window.open(url, '_blank')` WhatsApp call after order submission
+- Instead, show a success state inside the drawer with order confirmation details
+- Add a brief confirmation view: checkmark icon, "Order Received!" message, order number, and a "Done" button that closes the drawer
 
----
+### 2. CartDrawer.tsx -- Simplify validation
+- Remove the check for `kitchen_whatsapp_number` being configured (no longer blocking)
+- The settings query can stay for future use but is no longer required for order submission
 
-## Database Changes
+### 3. Optional cleanup
+- `src/lib/order.ts` -- Keep the file for now (the formatting functions could be reused for future receipt/print features), but it's no longer called from the cart flow
 
-**New `tabs` table:**
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid (PK) | |
-| location_type | text | Room, DineIn, Beach, WalkIn |
-| location_detail | text | e.g., "Unit 3", "Table 1" |
-| guest_name | text (nullable) | Optional guest name |
-| status | text | "Open" or "Closed" |
-| payment_method | text (nullable) | Set when closing |
-| created_at | timestamptz | Tab opened |
-| closed_at | timestamptz (nullable) | Tab settled |
-
-**Add to `orders` table:**
-| Column | Type | Description |
-|--------|------|-------------|
-| tab_id | uuid (nullable, FK to tabs) | Links order to a tab |
-
-Enable Realtime on `tabs` table.
-
----
-
-## File Changes
-
-| File | Change |
-|------|--------|
-| Migration SQL | Create `tabs` table, add `tab_id` column to `orders`, enable realtime |
-| `src/components/CartDrawer.tsx` | Redesign as invoice-style layout with service charge calculation, auto-attach orders to open tabs |
-| `src/pages/AdminPage.tsx` | Add "Tabs" sub-view in Orders tab showing open/closed tabs with close-out functionality |
-| `src/components/admin/TabInvoice.tsx` | New component -- full invoice view for a tab showing all orders, subtotal, service charge, grand total |
-
----
+### 4. Confirmation UX
+After tapping "Send to Kitchen":
+- Button shows a loading spinner briefly
+- Drawer content transitions to a confirmation view:
+  - Checkmark icon
+  - "Order Sent to Kitchen!"
+  - Summary: order type, location, item count, grand total
+  - "Place Another Order" button (closes drawer, stays on menu)
+  - "Done" button (navigates back to home)
 
 ## Technical Details
 
-**Tab auto-detection logic (in CartDrawer):**
-1. On "Send to Kitchen", query `tabs` for an open tab matching the current `location_detail` and `location_type`
-2. If found, use that `tab_id` for the new order
-3. If not found, insert a new tab row, then use its id
-4. Order is inserted with the `tab_id` reference
+**CartDrawer.tsx changes:**
+- Add a `submitted` state that toggles to `true` after successful database insert
+- When `submitted === true`, render the confirmation view instead of the item list
+- Remove the WhatsApp URL construction and `window.open` call
+- On drawer close or "Place Another Order", reset `submitted` to `false`
+- Keep `cart.clearCart()` on successful submission
 
-**Invoice layout in CartDrawer:**
-- Header: "BAIA PALAWAN -- Micro Resort"
-- Order type and location displayed
-- Itemized table: Item | Qty | Price | Total
-- Subtotal
-- Service Charge (10%): auto-calculated as `subtotal * 0.10`
-- Grand Total: `subtotal + service_charge`
-- "Send to Kitchen" button (places order, keeps tab open)
+**No database changes needed** -- the realtime pipeline already delivers orders to the kitchen tablet instantly.
 
-**Admin tab close-out:**
-- Fetch all orders where `tab_id = selected_tab.id`
-- Display combined invoice with all orders grouped by timestamp
-- Select payment method, then update `tabs.status = 'Closed'` and `tabs.closed_at = now()`
-- All orders on the tab get status set to "Paid" then "Closed" automatically
-
-**Service charge stored on each order:**
-- Add `service_charge` numeric column to `orders` table (default 0)
-- Calculated as `total * 0.10` at order time
-- Reports tab can sum both `total` and `service_charge` for accurate revenue
+**No new files needed** -- this is a simplification, not an addition.
 
