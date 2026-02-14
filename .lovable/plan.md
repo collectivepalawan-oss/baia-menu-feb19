@@ -1,52 +1,60 @@
 
 
-## Fix Mobile Experience for All Pages
+## Add Orders Pipeline to Staff View with Blinking New Order Indicator
 
-### Current State
-After thorough testing on a 390x844 mobile viewport, all core features ARE functioning (menu categories load, items display, cart works, order type selection works, admin page works). However, there are several mobile UX issues that need fixing:
+### What We're Building
+When staff enters the app (via passkey), they currently only see the menu + cart. We'll add a **bottom navigation bar** with two tabs: "Menu" and "Orders". The Orders view will show the same real-time kitchen pipeline as the admin dashboard (New, Preparing, Served, Paid), so staff and chefs can track orders without needing admin access.
 
-### Issues Found
+New orders in the "New" status will have a **blinking indicator light** on the "Start Preparing" button that pulses until someone taps it, confirming the chef has seen the order.
 
-**1. Visible scrollbar on menu category tabs**
-The horizontal category tab bar on the MenuPage shows an ugly native scrollbar. On mobile, this should be hidden with smooth touch-scroll instead.
+### Changes
 
-**2. Category tabs lack scroll hint**
-With 7 categories (Food Menu, Non-Alcoholic, Fruit Shakes, Cocktails, Wine, Spirits, Beer), users can't see that more tabs exist off-screen. No visual indicator that scrolling is possible.
+**1. Create a new `StaffOrdersView` component** (`src/components/staff/StaffOrdersView.tsx`)
+- Reuses the existing `OrderCard` component
+- Shows status tabs: New, Preparing, Served, Paid (today's orders only)
+- Shows order count badges on each status tab
+- Subscribes to Supabase Realtime for instant updates when orders change
+- Calls the same `advanceOrder` function to move orders through the pipeline
 
-**3. Cart drawer item row is cramped on mobile**
-The cart item row tries to fit Item name, -/qty/+, unit price, total, and delete icon all in one line. On small screens this gets very tight and truncated.
+**2. Update `OrderCard` component** (`src/components/admin/OrderCard.tsx`)
+- When the order status is "New", add a CSS animation class to the "Start Preparing" button that makes a small indicator dot blink/pulse
+- The blinking stops once the button is tapped (order moves to "Preparing")
 
-**4. Dialog/modal sizing on small screens**
-The item detail dialog uses `max-w-xs` which is fine, but could benefit from better mobile padding.
+**3. Add blinking animation to `src/index.css`**
+- Add a `@keyframes blink-dot` animation for the pulsing indicator
 
-### Plan
-
-**Step 1: Hide scrollbar on category tabs (MenuPage.tsx)**
-- Add CSS class to hide the scrollbar while keeping horizontal scroll functionality
-- Add `scrollbar-hide` utility class in index.css using `-webkit-scrollbar` and `scrollbar-width: none`
-- Add a subtle fade/gradient on the right edge to hint that more categories exist
-
-**Step 2: Improve cart drawer layout for mobile (CartDrawer.tsx)**
-- Stack the item info more vertically on small screens
-- Give the item name more room, move price/total to a second line on narrow screens
-- Increase touch target sizes for the +/- and delete buttons (currently 3-3.5px icons which are too small for fingers)
-
-**Step 3: Ensure touch-friendly tap targets across all pages**
-- Increase minimum touch target sizes to 44x44px for interactive elements
-- Menu items on MenuPage already have good tap targets
-- Cart quantity +/- buttons need larger hit areas
-- Admin page tabs need adequate spacing
-
-**Step 4: Fix any z-index or overlay issues**
-- Ensure Select dropdowns on OrderType page have proper z-index and background on mobile
-- Confirm Dialog overlays work correctly (already tested and working)
+**4. Update `MenuPage.tsx`** - Add bottom navigation for staff mode
+- When `mode=staff`, show a fixed bottom nav bar with two tabs: "Menu" and "Orders"
+- "Menu" shows the current menu browsing view
+- "Orders" shows the `StaffOrdersView` component
+- The "Orders" tab badge shows count of active (non-closed) orders
+- When `mode=guest`, the bottom nav does not appear (guests don't see orders)
 
 ### Technical Details
 
-Files to modify:
-- `src/index.css` - Add scrollbar-hide utility class
-- `src/pages/MenuPage.tsx` - Apply scrollbar-hide to category tabs, add scroll fade indicator
-- `src/components/CartDrawer.tsx` - Improve mobile layout for cart items, increase touch targets
-- `src/pages/OrderType.tsx` - Minor touch target improvements
-- `src/pages/AdminPage.tsx` - Ensure admin tabs scroll properly on mobile
+**Bottom Navigation Layout (staff mode only):**
+```text
++----------------------------------+
+|         Menu Content             |
+|    (or Orders Pipeline)          |
+|                                  |
++----------------------------------+
+| [  Menu  ] | [ Orders (3) ]     |  <-- fixed bottom nav, 44px+ height
++----------------------------------+
+```
+
+**Blinking indicator on "Start Preparing" button:**
+- A small colored dot (8x8px) with `animate-pulse` plus a custom `animate-blink` that alternates opacity
+- Only appears when `order.status === 'New'`
+- Disappears once tapped (order advances to Preparing)
+
+**Files to create:**
+- `src/components/staff/StaffOrdersView.tsx` - Orders pipeline for staff
+
+**Files to modify:**
+- `src/pages/MenuPage.tsx` - Add bottom nav bar for staff, toggle between menu and orders views
+- `src/components/admin/OrderCard.tsx` - Add blinking dot to "Start Preparing" button for New orders
+- `src/index.css` - Add blink animation keyframes
+
+**Realtime:** The `StaffOrdersView` will subscribe to the `orders` table via Supabase Realtime channel, same pattern as `AdminPage.tsx`.
 
