@@ -89,4 +89,12 @@
       radial-gradient(ellipse at 20% 50%, hsla(220, 30%, 15%, 0.4) 0%, transparent 50%),
       radial-gradient(ellipse at 80% 20%, hsla(220, 25%, 18%, 0.3) 0%, transparent 50%);
   }
+  .blink-dot {
+    animation: blink-dot 1s ease-in-out infinite;
+  }
+}
+
+@keyframes blink-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(0.7); }
 }
