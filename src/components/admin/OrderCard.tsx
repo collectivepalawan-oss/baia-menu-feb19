@@ -67,8 +67,11 @@ const OrderCard = ({ order, onAdvance }: OrderCardProps) => {
           <Button
             size="sm"
             onClick={() => onAdvance(order.id, flow.next)}
-            className="font-body text-xs gap-1.5"
+            className="font-body text-xs gap-1.5 relative"
           >
+            {order.status === 'New' && (
+              <span className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-destructive blink-dot" />
+            )}
             {flow.icon}
             {flow.label}
           </Button>
