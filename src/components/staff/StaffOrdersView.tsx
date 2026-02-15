@@ -144,25 +144,20 @@ const StaffOrdersView = () => {
   const handleSubmitAddItems = async () => {
     if (!addingToOrder || addCartTotal === 0) return;
     const newItems = Object.entries(addCart).map(([, c]) => ({ name: c.name, price: c.price, qty: c.qty }));
-    const existingItems = (addingToOrder.items as any[]) || [];
-    // Merge items
-    const merged = [...existingItems];
-    newItems.forEach(ni => {
-      const existing = merged.find(m => m.name === ni.name);
-      if (existing) existing.qty += ni.qty;
-      else merged.push(ni);
-    });
-    const newTotal = merged.reduce((s, i) => s + i.price * i.qty, 0);
+    const newTotal = newItems.reduce((s, i) => s + i.price * i.qty, 0);
     const newServiceCharge = Math.round(newTotal * 0.1);
-    await supabase.from('orders').update({
-      items: merged,
+    await supabase.from('orders').insert({
+      items: newItems,
       total: newTotal,
       service_charge: newServiceCharge,
-      status: 'New', // reset to New so kitchen sees it
-    }).eq('id', addingToOrder.id);
+      status: 'New',
+      order_type: addingToOrder.order_type,
+      location_detail: addingToOrder.location_detail,
+      tab_id: addingToOrder.tab_id,
+    });
     qc.invalidateQueries({ queryKey: ['orders-staff'] });
     setAddingToOrder(null);
-    toast.success('Items added — order sent back to kitchen');
+    toast.success('New items sent to kitchen');
   };
 
   const advanceOrder = async (orderId: string, nextStatus: string) => {
