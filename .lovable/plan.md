@@ -1,47 +1,34 @@
 
 
-## Make New Orders More Obvious with Full Card Glow + Sound Notification
+## Add Home Button to Staff Orders Header
 
 ### Problem
-The current blinking indicator is just a tiny red dot on the "Start Preparing" button -- too subtle for a busy kitchen. The chef needs a much more obvious visual alert and a repeating sound notification until the order is acknowledged.
+The staff "Orders" view (when staff taps the "Orders" tab in the bottom nav) is missing a Home button in its header. Every other page already has one. The NotFound page also lacks the consistent styled Home button.
 
 ### Changes
 
-**1. Make the entire "New" order card visually urgent**
-- Add a pulsing gold/amber border glow animation to the entire card when status is "New"
-- Make the "Start Preparing" button itself pulse/flash with a bright background
-- Add a bold "NEW ORDER" banner or animated label at the top of the card
-- The card border will glow in and out to catch the chef's eye from across the kitchen
+**1. `src/pages/MenuPage.tsx` -- Staff Orders header (lines 228-231)**
+- Add a Home icon button (same style as the menu header) to the left side of the "ORDERS" header
+- Change the layout from centered title to `justify-between` with Home button on left, title centered, and an invisible spacer on right for balance
 
-**2. Add a repeating notification sound for new orders**
-- In `StaffOrdersView`, track which order IDs have been "seen" (status advanced from New)
-- When a new order appears with status "New", play a short notification chime on a loop (every 5 seconds)
-- The sound stops as soon as the chef taps "Start Preparing" on that order
-- Use the Web Audio API with a generated tone (no external file needed) to avoid mobile audio restrictions
-- On first interaction with the page, unlock audio context for mobile browsers
-
-**3. Add a "New" tab pulse indicator**
-- When there are New orders, make the "New" status tab itself pulse to draw attention even if the chef is on another tab
+**2. `src/pages/NotFound.tsx`**
+- Restyle to match the app theme (navy background, display font)
+- Replace the plain text link with a Home icon button and a styled "Return Home" button for fast navigation
 
 ### Technical Details
 
-**Files to modify:**
+**MenuPage.tsx (Orders header, ~line 228-231):**
+Replace the centered-only header with:
+```tsx
+<div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+  <button onClick={() => navigate('/')} className="text-cream-dim hover:text-foreground transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center">
+    <Home className="w-5 h-5" />
+  </button>
+  <h1 className="font-display text-lg tracking-[0.15em] text-foreground">ORDERS</h1>
+  <div className="w-[44px]" /> {/* spacer for centering */}
+</div>
+```
 
-- `src/components/admin/OrderCard.tsx`
-  - When `order.status === 'New'`, apply a glowing/pulsing border animation class to the entire card
-  - Make the "Start Preparing" button larger and more prominent with an animated background
-  - Keep the existing small dot but add the card-level animation as well
-
-- `src/index.css`
-  - Add `@keyframes glow-pulse` for the card border glow effect
-  - Add `@keyframes btn-pulse` for the button flash effect
-
-- `src/components/staff/StaffOrdersView.tsx`
-  - Add a `useRef` for AudioContext and a `useEffect` that monitors new orders
-  - Track acknowledged order IDs in state
-  - Play a repeating notification tone every 5 seconds while there are unacknowledged "New" orders
-  - Stop the sound when all New orders have been advanced
-  - Unlock audio on first user tap (for mobile browser restrictions)
-
-**Sound approach:** Generate a simple two-tone chime using Web Audio API `OscillatorNode` -- no external audio files needed, works offline, and avoids CORS/file issues.
-
+**NotFound.tsx:**
+- Add `useNavigate`, import `Home` from lucide-react
+- Apply `bg-navy-texture` background, `font-display` headings, and a prominent Home button with 44px touch target
