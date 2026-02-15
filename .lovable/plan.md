@@ -1,39 +1,42 @@
 
 
-## Support Split Shifts and Lunch Breaks
+## Add Delete Capability to Menu Item Editor
 
-### What Already Works
-The database already handles multiple shifts per day correctly. Each clock-in creates a new `employee_shifts` row, and clocking out closes only that row. The `getTodayHours` function sums all completed shifts for the day. So an employee can clock out for lunch and clock back in without any data issues.
+### Current State
+- **Add**: Working via "Add Menu Item" button (opens dialog with `editItem = 'new'`)
+- **Edit**: Working via clicking any menu item in the list (opens dialog with item data)
+- **Delete**: Missing -- no delete button exists in the menu item dialog
 
-### What Needs Improvement
+### Changes Required
 
-**1. Employee Page -- Show today's shift breakdown**
-Currently the employee card only shows "Today: 3.5h" as a single number. Employees can't see their individual shift segments. We'll add a small list of today's shifts under each employee card showing:
-- Shift 1: 8:00 AM - 12:00 PM (4.0h)
-- Shift 2: 1:30 PM - still working
+**File: `src/pages/AdminPage.tsx`**
 
-This makes it clear to the employee that their lunch break was recorded and they're on their second (or third) shift.
+1. Add a `deleteItem` function that:
+   - Deletes associated `recipe_ingredients` rows first (to avoid orphaned data)
+   - Deletes the `menu_items` row
+   - Closes the dialog
+   - Invalidates the menu query cache
+   - Shows a success toast
 
-**2. Employee Page -- Show shift count label**
-Add a "Split Shift" or "2 shifts" indicator when an employee has more than one shift today, so it's obvious at a glance.
-
-**3. Admin Payroll -- Group shifts by day per employee**
-In the Shift Log, when an employee has multiple shifts on the same day, visually group them together and show a "Split Shift" badge with a daily total. This helps admin quickly see the full picture for that day.
-
-**4. CSV Export -- Add daily totals for split shifts**
-When exporting, add a subtotal row for days where an employee worked multiple shifts, making it clear for accounting.
+2. Add a Delete button to the edit dialog (only shown for existing items, not for "new"):
+   - Placed below the Save button or in the dialog footer
+   - Uses a two-click confirmation pattern (first click shows "Confirm Delete?", second click actually deletes) to prevent accidental deletion
+   - Styled with destructive/red color to clearly indicate danger
+   - Includes a Trash icon for visual clarity
 
 ### Technical Details
 
-**File: `src/pages/EmployeePage.tsx`**
-- Filter today's shifts per employee (already available in `shifts` array)
-- Render a compact list of shift segments below the summary line
-- Show shift count badge (e.g., "2 shifts") when count > 1
-- No database changes needed
+```text
+deleteItem function:
+  1. await supabase.from('recipe_ingredients').delete().eq('menu_item_id', editItem.id)
+  2. await supabase.from('menu_items').delete().eq('id', editItem.id)
+  3. setEditItem(null)
+  4. qc.invalidateQueries({ queryKey: ['menu-admin'] })
+  5. toast.success('Menu item deleted')
+```
 
-**File: `src/components/admin/PayrollDashboard.tsx`**
-- In the Shifts sub-view, group `filteredShifts` by employee + date
-- When a group has more than 1 shift, show a "Split Shift" badge and a daily subtotal row
-- In `downloadCSV`, insert a subtotal row after each multi-shift day grouping
+The delete button will use a `confirmingDelete` state variable with a 3-second auto-reset timeout (matching the existing pattern used in `EditableRow.tsx`).
 
-No database or schema changes required -- this is purely a UI/display enhancement.
+### No Database Changes Needed
+RLS policies already allow DELETE on `menu_items` and `recipe_ingredients` tables.
+
