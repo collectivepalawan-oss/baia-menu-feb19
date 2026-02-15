@@ -7,6 +7,7 @@ import { useResortProfile } from '@/hooks/useResortProfile';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Plus, Minus } from 'lucide-react';
+import TabInvoice from '@/components/admin/TabInvoice';
 
 const STATUSES = ['New', 'Preparing', 'Served', 'Paid'];
 
@@ -109,6 +110,9 @@ const StaffOrdersView = () => {
 
   const filtered = useMemo(() => orders.filter(o => o.status === activeStatus), [orders, activeStatus]);
 
+  // --- View Tab Invoice ---
+  const [viewingTabId, setViewingTabId] = useState<string | null>(null);
+
   // --- Add Items to Served Order ---
   const [addingToOrder, setAddingToOrder] = useState<any>(null);
   const [addCart, setAddCart] = useState<Record<string, { name: string; price: number; qty: number }>>({});
@@ -206,6 +210,7 @@ const StaffOrdersView = () => {
             onAdvance={advanceOrder}
             resortProfile={resortProfile}
             onAddItems={handleOpenAddItems}
+            onViewTab={(tabId) => setViewingTabId(tabId)}
           />
         ))}
       </div>
@@ -285,6 +290,15 @@ const StaffOrdersView = () => {
             <Button onClick={handleSubmitAddItems} className="w-full font-display tracking-wider py-5">
               Add ₱{addCartTotal.toLocaleString()} to Order
             </Button>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Tab Invoice Dialog */}
+      <Dialog open={!!viewingTabId} onOpenChange={() => setViewingTabId(null)}>
+        <DialogContent className="bg-card border-border max-w-md max-h-[90vh] overflow-y-auto">
+          {viewingTabId && (
+            <TabInvoice tabId={viewingTabId} onClose={() => setViewingTabId(null)} />
           )}
         </DialogContent>
       </Dialog>
