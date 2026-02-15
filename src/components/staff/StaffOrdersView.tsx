@@ -115,7 +115,7 @@ const StaffOrdersView = () => {
   return (
     <div className="flex flex-col h-full">
       {/* Status tabs */}
-      <div className="flex gap-1 px-4 py-3 overflow-x-auto scrollbar-hide">
+      <div className="flex flex-wrap gap-1 px-4 py-3">
         {STATUSES.map(s => (
           <button
             key={s}

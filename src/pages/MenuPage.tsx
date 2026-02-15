@@ -102,7 +102,7 @@ const MenuPage = () => {
   const showMenu = !isStaff || staffTab === 'menu';
 
   return (
-    <div className={`min-h-screen bg-navy-texture flex flex-col ${isStaff ? 'pb-16' : ''}`}>
+    <div className={`min-h-screen bg-navy-texture flex flex-col overflow-x-hidden ${isStaff ? 'pb-16' : ''}`}>
       {showMenu ? (
         <>
           {/* Header */}
@@ -142,13 +142,13 @@ const MenuPage = () => {
 
             {/* Category tabs - hidden during search */}
             {!searchOpen && (
-              <div className="relative max-w-2xl mx-auto">
-                <div className="px-4 pb-3 flex gap-1 overflow-x-auto scrollbar-hide">
+              <div className="max-w-2xl mx-auto">
+              <div className="px-4 pb-3 flex flex-wrap gap-1">
                   {categories.map((cat: any) => (
                     <button
                       key={cat.id}
                       onClick={() => setActiveCategory(cat.name)}
-                      className={`font-display text-xs tracking-wider whitespace-nowrap px-3 py-2 rounded-full transition-colors min-h-[36px] ${
+                      className={`font-display text-xs tracking-wider px-3 py-2 rounded-full transition-colors min-h-[36px] ${
                         activeCategory === cat.name
                           ? 'bg-gold/20 text-gold border border-gold/40'
                           : 'text-cream-dim hover:text-foreground border border-transparent'
@@ -158,7 +158,6 @@ const MenuPage = () => {
                     </button>
                   ))}
                 </div>
-                <div className="absolute right-0 top-0 bottom-0 w-8 pointer-events-none bg-gradient-to-l from-[hsl(var(--navy-deep))] to-transparent" />
               </div>
             )}
           </header>

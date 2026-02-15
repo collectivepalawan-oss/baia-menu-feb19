@@ -272,7 +272,7 @@ const AdminPage = () => {
     : ['New', 'Preparing', 'Served', 'Paid'];
 
   return (
-    <div className="min-h-screen bg-navy-texture">
+    <div className="min-h-screen bg-navy-texture overflow-x-hidden">
       <div className="max-w-2xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
@@ -283,7 +283,7 @@ const AdminPage = () => {
         </div>
 
         <Tabs defaultValue="settings" className="w-full">
-          <TabsList className="w-full bg-secondary mb-6 overflow-x-auto scrollbar-hide">
+          <TabsList className="w-full bg-secondary mb-6 flex-wrap h-auto">
             <TabsTrigger value="settings" className="font-display text-xs tracking-wider flex-1 min-h-[44px]">Setup</TabsTrigger>
             <TabsTrigger value="menu" className="font-display text-xs tracking-wider flex-1 min-h-[44px]">Menu</TabsTrigger>
             <TabsTrigger value="orders" className="font-display text-xs tracking-wider flex-1 min-h-[44px]">Orders</TabsTrigger>
@@ -470,7 +470,7 @@ const AdminPage = () => {
                 </div>
 
                 {/* Status tabs */}
-                <div className="flex gap-1 overflow-x-auto">
+                <div className="flex flex-wrap gap-1">
                   {statuses.map(s => (
                     <button key={s} onClick={() => setActiveStatus(s)}
                       className={`px-3 py-1.5 font-body text-xs rounded-md whitespace-nowrap transition-colors ${
