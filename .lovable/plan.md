@@ -1,32 +1,89 @@
 
 
-## Add Service Charge Total to Reports Dashboard
+## Employee Payroll and Clock-In System
 
-### Why
-Service charge (10%) is collected on every order and needs to be tracked for staff payroll, which is distributed every Saturday. Currently the reports calculate revenue/profit but don't surface the total service charge amount for the period.
+### Overview
+Add a full employee management and payroll system with clock-in/clock-out tracking, hourly pay rates, and payment recording. Accessible from a new "Employee" button on the home page (below Admin), protected by the same passkey (5309), and managed via a new "Payroll" tab in Admin.
 
-### Changes
+### Database Tables (2 new tables)
 
-**File: `src/components/admin/ReportsDashboard.tsx`**
+**employees**
+- id (uuid, PK)
+- name (text) -- employee name
+- hourly_rate (numeric) -- pay per hour
+- active (boolean, default true)
+- created_at (timestamptz)
 
-1. **Add service charge to stats calculation** (in the `stats` useMemo):
-   - Sum `o.service_charge` across all orders for the period
-   - Return `totalServiceCharge` alongside existing metrics
+**employee_shifts**
+- id (uuid, PK)
+- employee_id (uuid, FK -> employees)
+- clock_in (timestamptz) -- when they clocked in
+- clock_out (timestamptz, nullable) -- null = still clocked in
+- hours_worked (numeric, nullable) -- auto-calculated on clock-out
+- total_pay (numeric, nullable) -- hours x hourly_rate
+- is_paid (boolean, default false) -- mark as paid
+- paid_at (timestamptz, nullable)
+- created_at (timestamptz)
 
-2. **Add a Service Charge summary card** to the dashboard:
-   - New card in the summary grid showing total service charge with a receipt/banknote icon
-   - Labeled "Service Charge (Payroll)" so it's clear what it's for
+Both tables get public RLS policies (matching the existing pattern in this project).
 
-3. **Include service charge in CSV export**:
-   - Add a `Total Service Charge` line in the summary section of the CSV
-   - The per-transaction rows already include service charge -- no change needed there
+### New Pages and Components
+
+**1. Home Page (`src/pages/Index.tsx`)**
+- Add "Employee" button below the "Admin" button
+- Uses same passkey dialog (add `'employee'` to passkeyMode union)
+- On success, navigates to `/employee`
+
+**2. Employee Clock-In Page (`src/pages/EmployeePage.tsx`)**
+- New route `/employee`
+- Shows list of active employees as cards
+- Each card shows employee name, hourly rate, and current status (Clocked In / Clocked Out)
+- "Clock In" button starts a shift (inserts into employee_shifts with clock_in = now)
+- "Clock Out" button ends the shift (updates clock_out, calculates hours_worked and total_pay)
+- Shows today's total hours for each employee
+- Home button to go back
+
+**3. Admin Payroll Tab (`src/pages/AdminPage.tsx`)**
+- New "Payroll" tab alongside Setup, Menu, Orders, Reports
+- Sub-sections:
+
+  **a. Employee Management**
+  - List of all employees with name, hourly rate, active toggle
+  - Add new employee form (name + hourly rate)
+  - Edit/delete employees (reuse EditableRow pattern)
+
+  **b. Shift Log & Pay**
+  - Date filter (Today, Yesterday, This Week, This Month, Custom) -- reuse same pattern as Reports
+  - Stacked card layout (no tables!) showing each shift:
+    - Employee name, clock-in time, clock-out time, hours worked, total pay
+    - "Mark Paid" button per shift (sets is_paid=true, paid_at=now)
+    - Badge showing Paid/Unpaid status
+  - Summary card at top: Total Hours, Total Pay Due, Total Paid
+
+  **c. Payroll Summary**
+  - Per-employee breakdown: total hours, total earnings, amount paid, amount outstanding
+  - "Mark All Paid" button per employee for bulk payment
+
+### Route Changes (`src/App.tsx`)
+- Add `/employee` route pointing to new `EmployeePage`
 
 ### Technical Details
 
-- In the `stats` useMemo (around line 136), add: `const totalServiceCharge = orders.reduce((s, o) => s + (o.service_charge || 0), 0);`
-- Return it in the stats object
-- Add a new summary card after the existing 4 cards (Revenue, Food Cost, Profit, Margin) -- will use a 2-column grid row or expand to 3 columns
-- In `generateCSV()`, add `Total Service Charge,${stats.totalServiceCharge.toFixed(2)}` to the summary block
+- All layouts use stacked cards (no horizontal scroll)
+- Follows existing design system: dark navy background, cream/beige typography, Playfair Display headers, Lato body text
+- Clock-in/out uses realtime subscription for live status updates
+- Hours calculation: `(clock_out - clock_in)` in hours, rounded to 2 decimal places
+- Service charge from Reports can be cross-referenced with payroll for Saturday distribution
 
-No database changes needed.
+### Files to Create
+- `src/pages/EmployeePage.tsx` -- clock-in/out interface
+- `src/components/admin/PayrollDashboard.tsx` -- admin payroll management
 
+### Files to Modify
+- `src/pages/Index.tsx` -- add Employee button + passkey mode
+- `src/pages/AdminPage.tsx` -- add Payroll tab
+- `src/App.tsx` -- add /employee route
+
+### Database Migration
+- Create `employees` table with RLS
+- Create `employee_shifts` table with RLS and FK to employees
