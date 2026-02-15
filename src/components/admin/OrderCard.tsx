@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChefHat, Truck, CreditCard, CheckCircle2, AlertTriangle, Download, MessageCircle, PlusCircle } from 'lucide-react';
+import { ChefHat, Truck, CreditCard, CheckCircle2, AlertTriangle, Download, MessageCircle, PlusCircle, Receipt } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ResortProfile } from '@/hooks/useResortProfile';
 import { generateInvoicePdf, buildInvoiceWhatsAppText } from '@/lib/generateInvoicePdf';
@@ -26,9 +26,10 @@ interface OrderCardProps {
   onAdvance: (orderId: string, nextStatus: string) => void;
   resortProfile?: ResortProfile | null;
   onAddItems?: (order: any) => void;
+  onViewTab?: (tabId: string) => void;
 }
 
-const OrderCard = ({ order, onAdvance, resortProfile, onAddItems }: OrderCardProps) => {
+const OrderCard = ({ order, onAdvance, resortProfile, onAddItems, onViewTab }: OrderCardProps) => {
   const canInvoice = order.status === 'Served' || order.status === 'Paid';
 
   const handleDownloadPdf = async () => {
@@ -73,9 +74,16 @@ const OrderCard = ({ order, onAdvance, resortProfile, onAddItems }: OrderCardPro
             {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
           </p>
         </div>
-        <Badge variant="outline" className={`font-body text-xs ${statusColor}`}>
-          {order.status}
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          {order.tab_id && (
+            <Badge variant="outline" className="font-body text-[10px] bg-purple-500/20 text-purple-400 border-purple-400/40">
+              Tab
+            </Badge>
+          )}
+          <Badge variant="outline" className={`font-body text-xs ${statusColor}`}>
+            {order.status}
+          </Badge>
+        </div>
       </div>
 
       {/* Items */}
@@ -109,6 +117,17 @@ const OrderCard = ({ order, onAdvance, resortProfile, onAddItems }: OrderCardPro
             >
               <PlusCircle className="w-4 h-4" />
               Add Items
+            </Button>
+          )}
+          {order.tab_id && onViewTab && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onViewTab(order.tab_id)}
+              className="font-body text-xs gap-1 border-purple-400/40 text-purple-400 hover:bg-purple-500/10"
+            >
+              <Receipt className="w-4 h-4" />
+              Tab Invoice
             </Button>
           )}
           {canInvoice && (
