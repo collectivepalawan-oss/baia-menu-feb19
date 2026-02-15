@@ -1,27 +1,32 @@
 
 
-## Fix: Remove Horizontal Scroll from Reports Dashboard
+## Add Service Charge Total to Reports Dashboard
 
-### Problem
-The Item Profit Breakdown section uses a traditional HTML table with 6 columns (Item, Qty, Revenue, Cost, Profit, Margin), wrapped in `overflow-auto`. This causes horizontal scrolling on mobile, which violates the project's layout constraints.
-
-### Solution
-Replace the `<Table>` component with **stacked card rows** -- one card per item -- showing all data vertically without any horizontal overflow.
+### Why
+Service charge (10%) is collected on every order and needs to be tracked for staff payroll, which is distributed every Saturday. Currently the reports calculate revenue/profit but don't surface the total service charge amount for the period.
 
 ### Changes
 
-**File: `src/components/admin/ReportsDashboard.tsx`** (lines 346-376)
+**File: `src/components/admin/ReportsDashboard.tsx`**
 
-Replace the `<Table>` / `overflow-auto` block with a vertical list of items, each rendered as a compact stacked layout:
+1. **Add service charge to stats calculation** (in the `stats` useMemo):
+   - Sum `o.service_charge` across all orders for the period
+   - Return `totalServiceCharge` alongside existing metrics
 
-```
-+------------------------------------------+
-| Mango Shake                              |
-| Qty: 12   Revenue: P1,800                |
-| Cost: P480   Profit: P1,320   Margin: 73%|
-+------------------------------------------+
-```
+2. **Add a Service Charge summary card** to the dashboard:
+   - New card in the summary grid showing total service charge with a receipt/banknote icon
+   - Labeled "Service Charge (Payroll)" so it's clear what it's for
 
-Each item will be a bordered `div` with the item name as a header and two rows of key-value pairs underneath, using `flex-wrap` and small text to fit cleanly on mobile.
+3. **Include service charge in CSV export**:
+   - Add a `Total Service Charge` line in the summary section of the CSV
+   - The per-transaction rows already include service charge -- no change needed there
 
-No other files need changes. No database changes needed.
+### Technical Details
+
+- In the `stats` useMemo (around line 136), add: `const totalServiceCharge = orders.reduce((s, o) => s + (o.service_charge || 0), 0);`
+- Return it in the stats object
+- Add a new summary card after the existing 4 cards (Revenue, Food Cost, Profit, Margin) -- will use a 2-column grid row or expand to 3 columns
+- In `generateCSV()`, add `Total Service Charge,${stats.totalServiceCharge.toFixed(2)}` to the summary block
+
+No database changes needed.
+
