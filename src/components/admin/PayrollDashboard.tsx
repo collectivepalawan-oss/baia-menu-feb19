@@ -78,7 +78,7 @@ const PayrollDashboard = () => {
       switch (dateFilter) {
         case 'today': return d >= startOfDay(now);
         case 'yesterday': return d >= startOfDay(subDays(now, 1)) && d < startOfDay(now);
-        case 'week': return d >= startOfWeek(now, { weekStartsOn: 1 });
+        case 'week': return d >= startOfWeek(now, { weekStartsOn: 0 });
         case 'month': return d >= startOfMonth(now);
         default: return true;
       }
@@ -366,13 +366,31 @@ const PayrollDashboard = () => {
   const dateFilters: { key: DateFilter; label: string }[] = [
     { key: 'today', label: 'Today' },
     { key: 'yesterday', label: 'Yesterday' },
-    { key: 'week', label: 'This Week' },
+    { key: 'week', label: 'Pay Period' },
     { key: 'month', label: 'This Month' },
     { key: 'all', label: 'All' },
   ];
 
+  // Pay period dates
+  const now = new Date();
+  const payPeriodStart = isSunday(now) ? startOfDay(now) : previousSunday(now);
+  const payPeriodEnd = nextSaturday(now);
+
   return (
     <div className="space-y-4">
+      {/* Pay Period Banner */}
+      {(subView === 'shifts' || subView === 'summary' || subView === 'payments') && (
+        <div className="border border-primary/30 bg-primary/5 rounded-lg px-4 py-2.5 flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-primary" />
+            <span className="font-display text-xs tracking-wider text-foreground">
+              Pay Period: {format(payPeriodStart, 'EEE, MMM d')} – {format(payPeriodEnd, 'EEE, MMM d')}
+            </span>
+          </div>
+          <Badge variant="outline" className="text-xs font-body">Payday: Saturday</Badge>
+        </div>
+      )}
+
       {/* Sub-view toggle */}
       <div className="flex gap-1 flex-wrap">
         {([
