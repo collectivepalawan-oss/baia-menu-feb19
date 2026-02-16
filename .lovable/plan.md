@@ -1,134 +1,85 @@
 
 
-## Add Expenses Section to Admin Dashboard
+## Receipt Management with OCR Scanning
 
 ### Overview
-Add a new "Expenses" tab to the admin dashboard for tracking business expenses with receipt uploads, approval workflow, and pay-period filtering. Multi-admin features and AI scanning will be deferred to a later phase.
+Add a standalone `/receipts` page with camera-based receipt scanning, AI-powered data extraction, and a history list. This page will save scanned receipts to the existing `expenses` table, integrating seamlessly with the Expenses dashboard in Admin.
 
-### Phase 1 Scope (this implementation)
-- Expenses tab in admin with list view, summary cards, receipt upload, detail/edit, approve/delete workflow
-- Pay period banner (reused from Payroll)
-- Audit trail (edit history stored per expense)
-- Soft delete with restore
-- PDF generation for approved receipts
-- Feature flag
+### OCR Approach: AI Vision via Backend Function
 
-### Deferred to later phases
-- Multi-admin locking, @mentions, activity feed, comments (requires auth)
-- AI receipt scanning (can be added once manual flow is solid)
-- Monthly hard-delete cleanup job
+Tesseract.js is unreliable for real-world receipts (thermal paper, varied layouts, poor lighting). Instead, we will use a backend function powered by Lovable AI (Gemini 2.5 Flash) which excels at reading receipt images and extracting structured data. No API key is needed.
 
----
+The flow:
+1. User captures/uploads a receipt image
+2. Image is uploaded to the existing `receipts` storage bucket
+3. The image URL is sent to a backend function
+4. The function calls Gemini with a prompt to extract vendor, date, currency, and total
+5. Extracted data is returned to the frontend as JSON
+6. User reviews and edits the data in a form, then saves
 
-### 1. Database Migration
+### File Changes
 
-Create two tables:
+**New files:**
+- `supabase/functions/scan-receipt/index.ts` -- Backend function that receives an image URL, calls Gemini Vision to extract vendor/date/currency/total, returns JSON with confidence scores
+- `src/pages/ReceiptsPage.tsx` -- Standalone page with scanner interface, review form, and history list
 
-**`expenses`** - main expense records
-- `id` uuid PK
-- `status` text (draft / pending_review / approved / deleted) default 'draft'
-- `image_url` text (receipt image in storage)
-- `pdf_url` text (generated PDF URL)
-- `vendor` text
-- `expense_date` date
-- `amount` numeric
-- `vat_type` text (e.g. 'vatable', 'vat_exempt', 'zero_rated')
-- `tin` text
-- `tax_amount` numeric default 0
-- `category` text
-- `notes` text
-- `created_by` text (admin name, manual for now)
-- `created_at` timestamptz default now()
-- `reviewed_by` text
-- `reviewed_at` timestamptz
-- `pay_period_start` date
-- `pay_period_end` date
-- `deleted_at` timestamptz (soft delete timestamp)
+**Modified files:**
+- `src/App.tsx` -- Add `/receipts` route
 
-**`expense_history`** - audit trail
-- `id` uuid PK
-- `expense_id` uuid FK -> expenses
-- `action` text (created / updated / approved / deleted / restored)
-- `user_name` text
-- `field` text
-- `old_value` text
-- `new_value` text
-- `created_at` timestamptz default now()
+**No changes to:** AdminPage, ExpensesDashboard, or any existing business logic.
 
-**Storage bucket**: `receipts` (public) for receipt images and generated PDFs.
+### Database Changes
 
-RLS: Public access policies (matching existing pattern in this project).
+Add two columns to the existing `expenses` table:
+- `currency` (text, default 'PHP') -- to store the extracted currency
+- `ai_confidence` (jsonb, default null) -- to store per-field confidence scores from the AI extraction
 
-### 2. New Component: `ExpensesDashboard.tsx`
+No new tables needed. Scanned receipts are saved as expenses with `status = 'pending_review'`.
 
-Located at `src/components/admin/ExpensesDashboard.tsx`. Follows the same pattern as PayrollDashboard and InventoryDashboard.
+### Page Layout: `/receipts`
 
-**Sub-views** (toggle buttons at top, same style as Payroll):
-- **List** (default) - summary cards + expense list
-- **Add/Edit** - form view (opens in-page, not a dialog, for split-screen on desktop)
+**Mobile-first, single column layout:**
 
-**List view contains:**
-- Pay period banner (Sun-Sat, reused logic from Payroll)
-- Summary cards row: "Total Expenses" (sum of approved), "Pending Review" (count)
-- Filter dropdown matching Payroll style (Pay Period / This Month / All)
-- Two sections: "Pending Review" and "Approved" with expense cards
-- Each card shows: vendor, date, amount, category badge, status badge
-- Tap a card to open detail view
+1. **Header** -- "Receipt Scanner" title with a back button to home
+2. **Scan Button** -- Large, prominent "Scan Receipt" button that opens the device camera (via `<input type="file" accept="image/*" capture="environment">`)
+3. **Processing State** -- After capture, show the image with a loading spinner overlay and "Extracting data..." text while the backend function runs
+4. **Review Form** (shown after extraction) -- Split layout on desktop (image left, form right), stacked on mobile:
+   - Receipt image preview (zoomable)
+   - Vendor Name (text input, pre-filled) with confidence badge
+   - Date (date input, pre-filled) with confidence badge
+   - Currency (text input, pre-filled, e.g. "PHP")
+   - Total Amount (number input, pre-filled) with confidence badge
+   - Category dropdown (same categories as Expenses)
+   - Notes textarea
+   - "Save" and "Discard" buttons
+5. **History List** -- Below the scanner, a scrollable list of previously scanned receipts showing vendor, date, amount, and status badge (Pending Review / Approved / Draft). Tapping opens the review form for editing.
 
-**Add/Edit view contains:**
-- Receipt image upload (to `receipts` storage bucket) with loading spinner
-- Image preview (left side on desktop, top on mobile)
-- Editable form (right side on desktop, below on mobile):
-  - Vendor (text input)
-  - Expense Date (date input)
-  - Amount (number input with peso sign)
-  - VAT Type (dropdown: Vatable / VAT Exempt / Zero Rated)
-  - TIN (text input)
-  - Tax Amount (number)
-  - Category (dropdown: Food & Beverage / Supplies / Maintenance / Utilities / Transport / Other)
-  - Notes (textarea)
-  - Created By (text input, pre-filled if previously set via localStorage as convenience)
-- Action buttons: Save Draft / Submit for Review / Approve / Delete
-- Delete uses two-click confirmation (matching existing pattern)
-- Edit history log at the bottom showing all changes
+### Confidence Badges
 
-**Feature flag**: `FEATURE_EXPENSES` constant at top of AdminPage; the Expenses tab only renders when true.
+Each AI-extracted field shows a small colored badge:
+- Green "High" (score >= 0.8)
+- Yellow "Medium" (0.5-0.8)
+- Red "Low" (< 0.5)
 
-### 3. AdminPage.tsx Changes (minimal)
+This tells the user which fields to double-check.
 
-- Add `FEATURE_EXPENSES = true` constant
-- Import `ExpensesDashboard`
-- Add one `TabsTrigger` for "Expenses" between Inventory and Payroll
-- Add one `TabsContent` rendering `<ExpensesDashboard />`
-- No other modifications to existing tabs
+### Backend Function: `scan-receipt`
 
-### 4. PDF Generation
+```
+POST /scan-receipt
+Body: { imageUrl: string }
+Response: { vendor, date, currency, total, confidence: { vendor, date, currency, total } }
+```
 
-Reuse the existing `jspdf` dependency. When an expense is approved:
-- Generate a single-page PDF with receipt image, all form data, and audit trail
-- Upload PDF to `receipts` bucket
-- Save URL to `pdf_url` column
-- "Download PDF" button on approved expenses
-
-### 5. Soft Delete Flow
-
-- Delete sets `status = 'deleted'` and `deleted_at = now()`
-- Deleted expenses hidden from main list
-- "Show Deleted" toggle reveals them with a "Restore" button
-- Restore sets `status = 'draft'` and clears `deleted_at`
+Uses Gemini 2.5 Flash with a structured prompt asking it to extract receipt fields and return JSON. The model receives the image URL and returns parsed data.
 
 ### Technical Details
 
-- All form saves record changes to `expense_history` table (field, old value, new value)
-- Storage bucket created via SQL migration
-- Pay period calculation reuses the same `previousSunday`/`nextSaturday` logic from PayrollDashboard
-- Component file ~400-500 lines following existing dashboard patterns
-- Mobile-first: single column stacked layout, all touch targets 44px minimum
-
-### Files to create
-- `supabase/migrations/[timestamp]_create_expenses_tables.sql`
-- `src/components/admin/ExpensesDashboard.tsx`
-
-### Files to modify
-- `src/pages/AdminPage.tsx` (add tab trigger + content, feature flag, import)
+- Camera capture uses the native HTML file input with `capture="environment"` for rear camera on mobile
+- Images are uploaded to the existing `receipts` bucket before sending to the backend function
+- The backend function uses `LOVABLE_API_KEY` (already configured) and `SUPABASE_URL` secrets
+- Pay period dates are auto-calculated (Sunday-Saturday) and stored on save, matching the Expenses dashboard logic
+- History list queries `expenses` table filtered to entries that have an `image_url` (i.e., scanned receipts)
+- All saves record an entry in `expense_history` for the audit trail
+- Confidence scores stored in the `ai_confidence` JSONB column for future reference
 
