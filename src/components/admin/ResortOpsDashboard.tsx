@@ -197,7 +197,7 @@ const ResortOpsDashboard = () => {
   const [newAsset, setNewAsset] = useState({ name: '', type: '', balance: '' });
   const [newPayment, setNewPayment] = useState({ source: '', amount: '', expected_date: '' });
   const [newUnit, setNewUnit] = useState({ name: '', type: '', base_price: '', capacity: '' });
-  const [newGuest, setNewGuest] = useState({ full_name: '', email: '', phone: '' });
+  
   const [newBooking, setNewBooking] = useState({ guest_id: '', unit_id: '', platform: '', check_in: '', check_out: '', adults: '1', room_rate: '', addons_total: '0', paid_amount: '0', commission_applied: '0' });
   const [importOpen, setImportOpen] = useState(false);
   const [expenseReportsOpen, setExpenseReportsOpen] = useState(false);
@@ -212,7 +212,7 @@ const ResortOpsDashboard = () => {
 
   // ── Editing states ──
   const [editingUnit, setEditingUnit] = useState<any>(null);
-  const [editingGuest, setEditingGuest] = useState<any>(null);
+  
   const [editingBooking, setEditingBooking] = useState<any>(null);
   const [editingExpense, setEditingExpense] = useState<any>(null);
   const [editingTask, setEditingTask] = useState<any>(null);
@@ -315,13 +315,6 @@ const ResortOpsDashboard = () => {
     toast.success('Unit added');
   };
 
-  const addGuest = async () => {
-    if (!newGuest.full_name) return;
-    await from('resort_ops_guests').insert({ full_name: newGuest.full_name, email: newGuest.email, phone: newGuest.phone });
-    setNewGuest({ full_name: '', email: '', phone: '' });
-    invalidateAll();
-    toast.success('Guest added');
-  };
 
   const addBooking = async () => {
     if (!newBooking.guest_id || !newBooking.unit_id || !newBooking.check_in || !newBooking.check_out) return;
@@ -345,13 +338,6 @@ const ResortOpsDashboard = () => {
     toast.success('Unit updated');
   };
 
-  const saveGuest = async () => {
-    if (!editingGuest) return;
-    await from('resort_ops_guests').update({ full_name: editingGuest.full_name, email: editingGuest.email || null, phone: editingGuest.phone || null }).eq('id', editingGuest.id);
-    setEditingGuest(null);
-    invalidateAll();
-    toast.success('Guest updated');
-  };
 
   const saveBooking = async () => {
     if (!editingBooking) return;
@@ -740,41 +726,6 @@ const ResortOpsDashboard = () => {
         </CardContent>
       </Card>
 
-      {/* ── Guests ── */}
-      <Card className="bg-card border-border">
-        <CardHeader className="pb-3"><CardTitle className="font-display text-sm tracking-wider">Guests</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          <div className="space-y-2">
-            {guests.map((g: any) =>
-              editingGuest?.id === g.id ? (
-                <div key={g.id} className="flex items-center gap-2 p-2 rounded border border-primary/50">
-                  <Input value={editingGuest.full_name} onChange={e => setEditingGuest((p: any) => ({...p, full_name: e.target.value}))} className={`${inputCls} flex-1`} />
-                  <Input value={editingGuest.email || ''} onChange={e => setEditingGuest((p: any) => ({...p, email: e.target.value}))} placeholder="Email" className={`${inputCls} w-32`} />
-                  <Input value={editingGuest.phone || ''} onChange={e => setEditingGuest((p: any) => ({...p, phone: e.target.value}))} placeholder="Phone" className={`${inputCls} w-28`} />
-                  <SaveCancelBtns onSave={saveGuest} onCancel={() => setEditingGuest(null)} />
-                </div>
-              ) : (
-                <div key={g.id} className="flex items-center justify-between py-2 px-2 border-b border-border">
-                  <div className="flex-1">
-                    <p className="font-body text-sm text-foreground">{g.full_name}</p>
-                    <p className="font-body text-xs text-muted-foreground">{g.email || ''} {g.phone ? `· ${g.phone}` : ''}</p>
-                  </div>
-                  <div className="flex gap-1">
-                    <EditBtn onClick={() => setEditingGuest({ ...g })} />
-                    <DelBtn onClick={() => deleteRow('resort_ops_guests', g.id)} />
-                  </div>
-                </div>
-              )
-            )}
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <Input placeholder="Full name" value={newGuest.full_name} onChange={e => setNewGuest(p => ({...p, full_name: e.target.value}))} className={inputCls} />
-            <Input placeholder="Email" value={newGuest.email} onChange={e => setNewGuest(p => ({...p, email: e.target.value}))} className={inputCls} />
-            <Input placeholder="Phone" value={newGuest.phone} onChange={e => setNewGuest(p => ({...p, phone: e.target.value}))} className={inputCls} />
-          </div>
-          <Button size="sm" onClick={addGuest} className="w-full"><Plus className="w-4 h-4 mr-1" /> Add Guest</Button>
-        </CardContent>
-      </Card>
 
       {/* ── Reservations Ledger ── */}
       <Card className="bg-card border-border">
