@@ -1,42 +1,79 @@
 
 
-# Update Invoice to Use Resort Profile Data Instead of Hardcoded Logo
+# Inventory and Recipe System Redesign - Implementation Plan
 
-## Overview
+## Pre-Flight: Data Safety
 
-Remove the hardcoded "Binga Beach" logo image from the PDF invoice and WhatsApp text. Replace it with the resort name from the profile ("BAIA Palawan") and use all profile data (address, phone, email, website) dynamically.
+Before any unit conversions, the system will:
+1. **Snapshot current data** by querying and logging existing `ingredients` and `recipe_ingredients` tables (we can export CSV from the existing inventory dashboard as a backup)
+2. **Unit conversions will be intentional and auditable** - each change logged in `inventory_logs` with reason `unit_conversion`
 
-## Changes to `src/lib/generateInvoicePdf.ts`
+Looking at the actual data, most units are already correct:
+- Eggs = pcs, Bread = slices, Cooking Oil = ml, Cream = ml, Milk = ml, Olive Oil = ml, Honey = ml, Lemon/Calamansi = ml, White Rum = ml, Soda Water = ml
+- Banana = grams (correct for cocktail recipes where it's measured by weight)
+- Onion = grams (correct for cooking recipes)
 
-### PDF Generation (`generateInvoicePdf`)
+The main items that need correction are minimal. Recipe quantities already match their units properly.
 
-1. **Remove** the hardcoded logo image loading (`INVOICE_LOGO_PATH`, `loadImageAsBase64` call, and `addImage` block)
-2. **Add resort name as text header**: Display `profile.resort_name` ("BAIA Palawan") in bold, larger font, centered at the top
-3. **Add tagline** if set in profile (currently empty but future-proof)
-4. **Keep** address, phone, and email lines (already dynamic from profile)
-5. **Update footer**: Replace hardcoded `www.bingabeach.com` with `profile.website_url` (currently empty, so fall back gracefully)
+## Implementation Steps
 
-### WhatsApp Text (`buildInvoiceWhatsAppText`)
+### Step 1: Create Stock Check Utility
+**New file: `src/lib/stockCheck.ts`**
 
-1. Already uses `profile.resort_name` for the header -- no change needed there
-2. **Update footer**: Replace hardcoded `www.bingabeach.com` with `profile.website_url` or omit if empty
+A function that:
+- Takes cart items (name + quantity)
+- Looks up recipe_ingredients for each menu item
+- Aggregates total ingredient needs across all cart items
+- Compares against current_stock in ingredients table
+- Returns `{ canFulfill: boolean, shortages: [{itemName, ingredientName, needed, available, unit}] }`
 
-## Technical Details
+### Step 2: Update MenuPage.tsx - Sold Out Badges
+- Add a query for recipe_ingredients with ingredient stock data
+- Compute which menu items can't be fulfilled (any ingredient at 0 or below recipe requirement)
+- Show "Sold Out" badge on those items and disable tapping them
+- Show "Low Stock" badge when ingredients are near threshold
 
-### Lines changed in `generateInvoicePdf.ts`:
+### Step 3: Update CartDrawer.tsx - Pre-Order Validation
+- Import and call `stockCheck()` before `handleSendToKitchen`
+- If shortages found, show a warning toast listing which items can't be made
+- Block the order (staff can still override with a second tap)
 
-- Remove `const INVOICE_LOGO_PATH` (line 20)
-- Remove `loadImageAsBase64` function can stay (unused, but clean to remove)
-- Lines 51-59: Replace logo image block with text-based resort name header
-- Line 163: Replace `www.bingabeach.com` with dynamic `profile?.website_url`
-- Line 191: Same for WhatsApp text footer
+### Step 4: Enhance InventoryDashboard.tsx
+Add three new sections:
 
-### No database or schema changes needed
+**a) Consumption Log Tab**
+- Query `inventory_logs` where reason = 'order_deduction'
+- Group by date and ingredient
+- Show daily totals with date range filter
 
-All data already exists in the `resort_profile` table:
-- `resort_name`: "BAIA Palawan"
-- `address`: "Sitio Panindigan, Barangay Poblacion, San Vicente Palawan..."
-- `phone`: "+63 967 206 2327"
-- `email`: "booking@baia.com"
-- `website_url`: (currently empty)
+**b) Per-Dish Usage Tab**
+- Join inventory_logs with orders to show which dishes consumed the most
+- Date range filter
+
+**c) Dashboard Enhancements**
+- Unit type filter (pcs / grams / ml / all)
+- "Out of Stock" filter
+- Total inventory value summary (SUM of current_stock * cost_per_unit)
+- Prominent "Missing cost" badge on ingredients with cost_per_unit = 0
+
+### Step 5: Food Cost Visibility in Admin Menu List
+- In AdminPage.tsx menu tab, show food cost and margin % next to each menu item
+- Margin = (price - food_cost) / price * 100
+- Highlight items with no food cost data
+
+### Step 6: Fix Remaining Unit Types (Database)
+- Update the few ingredients that genuinely have wrong units
+- Add "slices" to the UNITS array in InventoryDashboard (Bread already uses it)
+
+## Files to Create
+- `src/lib/stockCheck.ts`
+
+## Files to Modify
+- `src/pages/MenuPage.tsx` - sold out badges, stock queries
+- `src/components/CartDrawer.tsx` - pre-order stock validation
+- `src/components/admin/InventoryDashboard.tsx` - consumption logs, filters, cost alerts
+- `src/pages/AdminPage.tsx` - food cost/margin display in menu list
+
+## No Schema Changes Needed
+All tables already have the correct structure. Only data updates for unit corrections (via insert tool, not migrations).
 
