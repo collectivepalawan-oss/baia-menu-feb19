@@ -399,12 +399,12 @@ const AdminPage = () => {
               <div className="space-y-3">
                 <div>
                   <label className="font-body text-xs text-cream-dim">WhatsApp Number (with country code)</label>
-                  <Input value={whatsapp || settings?.kitchen_whatsapp_number || ''} onChange={e => setWhatsapp(e.target.value)}
+                  <Input value={whatsapp} onChange={e => setWhatsapp(e.target.value)}
                     className="bg-secondary border-border text-foreground font-body mt-1" placeholder="639171234567" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <TimePicker label="Breakfast Start" value={brkStart || settings?.breakfast_start_time || '07:00'} onChange={setBrkStart} />
-                  <TimePicker label="Breakfast End" value={brkEnd || settings?.breakfast_end_time || '11:00'} onChange={setBrkEnd} />
+                  <TimePicker label="Breakfast Start" value={brkStart} onChange={setBrkStart} />
+                  <TimePicker label="Breakfast End" value={brkEnd} onChange={setBrkEnd} />
                 </div>
                 <Button onClick={saveSettings} className="font-display tracking-wider w-full">Save Settings</Button>
               </div>
