@@ -120,3 +120,15 @@
 .tab-pulse {
   animation: glow-pulse 2s ease-in-out infinite;
 }
+
+/* Prevent mobile scroll jumping during input typing */
+input, textarea, select {
+  scroll-margin: 1rem;
+}
+
+/* Stabilize scroll anchoring on mobile */
+@supports (overflow-anchor: auto) {
+  [class*="space-y-"] {
+    overflow-anchor: auto;
+  }
+}
