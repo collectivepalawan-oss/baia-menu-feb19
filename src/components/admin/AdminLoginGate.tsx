@@ -121,9 +121,12 @@ const AdminLoginGate = ({ children }: AdminLoginGateProps) => {
             />
             <Input
               id="admin-pin"
-              type="password"
+              type="tel"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
               value={loginPin}
-              onChange={e => setLoginPin(e.target.value)}
+              onChange={e => setLoginPin(e.target.value.replace(/\D/g, ''))}
               placeholder="PIN"
               className="bg-secondary border-border text-foreground font-body text-center text-2xl tracking-[0.5em] h-14"
               onKeyDown={e => { if (e.key === 'Enter') handleLogin(); }}
