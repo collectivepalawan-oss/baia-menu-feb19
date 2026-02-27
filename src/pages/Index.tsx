@@ -89,12 +89,15 @@ const Index = () => {
           </DialogHeader>
           <div className="flex flex-col gap-4 pt-2">
             <Input
-              type="password"
+              type="tel"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
               placeholder="Enter passkey"
               value={passkey}
-              onChange={(e) => { setPasskey(e.target.value); setError(''); }}
+              onChange={(e) => { setPasskey(e.target.value.replace(/\D/g, '')); setError(''); }}
               onKeyDown={(e) => e.key === 'Enter' && handlePasskey()}
-              className="bg-secondary border-border text-foreground text-center font-body text-lg tracking-widest"
+              className="bg-secondary border-border text-foreground text-center font-body text-2xl tracking-[0.5em]"
             />
             {error && <p className="text-destructive text-sm text-center font-body">{error}</p>}
             <Button onClick={handlePasskey} className="font-display tracking-wider">
