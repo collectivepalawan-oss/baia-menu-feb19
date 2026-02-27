@@ -28,6 +28,7 @@ const PayrollDashboard = () => {
   const [newName, setNewName] = useState('');
   const [newRate, setNewRate] = useState('');
   const [newRateType, setNewRateType] = useState<'hourly' | 'daily' | 'monthly'>('hourly');
+  const [newMessenger, setNewMessenger] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editRate, setEditRate] = useState('');
@@ -209,9 +210,10 @@ const PayrollDashboard = () => {
       rate_type: newRateType,
       daily_rate: newRateType === 'daily' ? rateVal : 0,
       monthly_rate: newRateType === 'monthly' ? rateVal : 0,
+      messenger_link: newMessenger.trim(),
     };
     await supabase.from('employees').insert(insertData as any);
-    setNewName(''); setNewRate(''); setNewRateType('hourly');
+    setNewName(''); setNewRate(''); setNewRateType('hourly'); setNewMessenger('');
     qc.invalidateQueries({ queryKey: ['employees-all'] });
     toast.success('Employee added');
   };
@@ -637,7 +639,7 @@ const PayrollDashboard = () => {
                   <Input value={editPhone} onChange={e => setEditPhone(e.target.value)}
                     placeholder="Phone number" className="bg-secondary border-border text-foreground font-body text-sm h-8 flex-1 min-w-[120px]" />
                   <Input value={editMessenger} onChange={e => setEditMessenger(e.target.value)}
-                    placeholder="Messenger link/username" className="bg-secondary border-border text-foreground font-body text-sm h-8 flex-1 min-w-[120px]" />
+                    placeholder="Messenger username" className="bg-secondary border-border text-foreground font-body text-sm h-8 flex-1 min-w-[120px]" />
                   <Button size="sm" className="font-display text-xs tracking-wider h-8"
                     onClick={async () => {
                       await supabase.from('employees').update({ phone: editPhone.trim(), messenger_link: editMessenger.trim() } as any).eq('id', emp.id);
@@ -663,6 +665,8 @@ const PayrollDashboard = () => {
             <Input value={newRate} onChange={e => setNewRate(e.target.value)}
               placeholder={newRateType === 'hourly' ? '₱/hr' : newRateType === 'daily' ? '₱/day' : '₱/mo'}
               type="number" className="bg-secondary border-border text-foreground font-body w-24" />
+            <Input value={newMessenger} onChange={e => setNewMessenger(e.target.value)}
+              placeholder="Messenger username" className="bg-secondary border-border text-foreground font-body flex-1 min-w-[120px]" />
             <Button onClick={addEmployee} size="icon" variant="outline"><Plus className="w-4 h-4" /></Button>
           </div>
 
