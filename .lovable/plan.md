@@ -1,55 +1,41 @@
 
-# Scheduled Delivery Time for Room Orders
 
-## Overview
+# Fix Room Order Type Label and Improve Chef Documentation
 
-Add an optional "Delivery Time" picker that appears when the order type is "Room". This lets staff/guests schedule orders for later (e.g., take dinner orders at 5pm for 7:30pm delivery, or breakfast selections in the evening for the next morning).
+## Problem
+- The order type is labeled "Room Delivery" but should just reflect the unit/room name since these are guest units, not delivery runs
+- Scheduled breakfast orders taken the night before need to be clearly documented for the chef in the morning
+- The WhatsApp message and order cards need to prominently show the unit name + scheduled time so the chef knows exactly what to prepare and when
 
-## How It Works
+## Changes
 
-- When "Room" order type is selected in the CartDrawer, a new "Scheduled Delivery" section appears
-- User can choose "ASAP" (default, current behavior) or "Schedule for later"
-- If scheduling, they pick a date+time using a simple time selector (hour + minute in 15-min increments + AM/PM), plus an optional date toggle for "Tomorrow" (for next-morning breakfast orders)
-- The scheduled time is saved to the `orders` table and displayed on the OrderCard in the admin/staff view
+### 1. Rename "Room Delivery" to "Room" in order_types table
+- Update the label from "Room Delivery" to "Room" in the database
 
-## Database Changes
+### 2. Update labels in CartDrawer.tsx
+- Change the `TYPE_LABELS` map entry from `Room: 'Room Delivery'` to `Room: 'Room'`
+- Change the "Delivery Time" heading to "Scheduled Time" (since it's not always a "delivery")
 
-### Alter `orders` table
+### 3. Update labels in order.ts (WhatsApp message)
+- Change the type label from `Room: 'Room Delivery'` to `Room: 'Room'`
+- Change `*Scheduled Delivery:*` to `*Scheduled for:*`
+- Make the WhatsApp message more chef-friendly: include unit name prominently at the top when scheduled, e.g.:
+  ```
+  SCHEDULED ORDER - Unit 3
+  Tomorrow 7:00 AM
+  ```
 
-Add one column:
-- `scheduled_for` (timestamptz, nullable, default NULL) -- when NULL or in the past, means "ASAP"
+### 4. Improve OrderCard.tsx scheduled badge
+- Make the scheduled badge more prominent for the chef -- show unit name + time together clearly
+- For scheduled orders, change the card header to emphasize "SCHEDULED" similar to how "NEW ORDER" is emphasized
+- Show the scheduled time in a more readable format, e.g. "Tomorrow 7:00 AM - Unit 3"
 
-## File Changes
-
-### 1. `src/components/CartDrawer.tsx`
-
-- Add state: `scheduleMode` ('asap' | 'scheduled'), `scheduledDate` (today/tomorrow), `scheduledHour`, `scheduledMinute`, `scheduledPeriod`
-- After the order type / location section, when `selectedOrderType === 'Room'`, render a "Delivery Time" section:
-  - Two toggle buttons: "ASAP" and "Schedule"
-  - When "Schedule" is selected, show:
-    - Date toggle: "Today" / "Tomorrow" buttons
-    - Time picker: Hour (1-12) select + Minute (00, 15, 30, 45) select + AM/PM select
-- When submitting, compute the `scheduled_for` timestamp and include it in the order insert
-- Include the scheduled time in the WhatsApp message if set
-
-### 2. `src/components/admin/OrderCard.tsx`
-
-- If `order.scheduled_for` exists and is in the future, show a badge like "Scheduled: 7:30 PM" or "Tomorrow 7:00 AM" near the order header
-- Use a Clock icon from lucide-react
-
-### 3. `src/lib/order.ts`
-
-- Update `formatWhatsAppMessage` to accept an optional `scheduledFor` date parameter
-- If provided, add a line like "*Scheduled Delivery:* 7:30 PM" or "*Scheduled Delivery:* Tomorrow 7:00 AM"
-
-### 4. `src/components/staff/StaffOrdersView.tsx`
-
-- Display the scheduled time on order cards if present (same badge approach)
+### 5. StaffOrdersView - ensure scheduled orders are visible
+- Check that staff orders view properly surfaces scheduled orders so the chef sees them in the morning
 
 ## Technical Details
+- Database update: `UPDATE order_types SET label = 'Room' WHERE type_key = 'Room'`
+- No schema changes needed -- the `scheduled_for` column already exists
+- All label changes are in 3 files: CartDrawer.tsx, order.ts, OrderCard.tsx
+- The WhatsApp message format change makes it scannable for the chef preparing morning orders
 
-- Migration: `ALTER TABLE orders ADD COLUMN scheduled_for timestamptz DEFAULT NULL;`
-- The scheduled_for column stores a full timestamp so it handles both same-day and next-day scheduling
-- Time picker uses simple Select dropdowns (matching existing TimePicker pattern) with 15-minute increments for practical scheduling
-- "ASAP" is the default -- no behavior change for non-Room orders or when users don't want to schedule
-- The feature appears for Room orders only since that's the primary use case for scheduled deliveries
