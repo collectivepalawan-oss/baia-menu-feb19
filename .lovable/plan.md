@@ -1,24 +1,24 @@
 
-# Add Messenger Username to Employee Creation Form
 
-## Current State
-- The `messenger_link` column already exists in the `employees` table -- no schema change needed
-- The **contact edit** form (pencil icon > phone icon) already has a Messenger input field
-- The **Payroll Dashboard** already shows a Messenger icon that links to `https://m.me/{username}` when the field is filled
-- The **employee creation form** (at the bottom of the employee list) does NOT include a Messenger field
+# Make All Login Inputs Use Numeric PIN Style
+
+## Problem
+The Staff Order, Admin, and Employee entry points all require a PIN, but only the Employee Portal currently uses a numeric keypad-optimized input. The Index page passkey dialog and the Admin Login Gate still use regular password inputs.
 
 ## Changes
 
-### 1. Add Messenger field to employee creation form (PayrollDashboard.tsx)
-- Add a new state variable `newMessenger` for the creation form
-- Add an Input field labeled "Messenger username" in the add-employee row
-- Include `messenger_link` in the `insertData` when creating a new employee
-- Clear the field after successful creation
+### 1. Index.tsx - Passkey Dialog
+- Change the passkey `Input` from `type="password"` to `type="tel"` with `inputMode="numeric"` and `pattern="[0-9]*"`
+- Filter non-digit characters on input
+- Add `maxLength={6}`, center text, larger tracking for PIN feel
 
-### 2. Improve label clarity
-- Update the contact edit placeholder from "Messenger link/username" to "Messenger username" for consistency
+### 2. AdminLoginGate.tsx - Admin PIN Input
+- Change the PIN `Input` from `type="password"` to `type="tel"` with `inputMode="numeric"` and `pattern="[0-9]*"`
+- Filter non-digit characters on input
+- Ensure consistent styling with the other PIN inputs (centered, large tracking)
 
 ### Technical Details
-- Single file change: `src/components/admin/PayrollDashboard.tsx`
-- No database migration needed -- `messenger_link` column already exists
-- No new dependencies
+- Two files modified: `src/pages/Index.tsx` and `src/components/admin/AdminLoginGate.tsx`
+- No backend changes needed
+- All three entry points will trigger mobile numeric keypads consistently
+
