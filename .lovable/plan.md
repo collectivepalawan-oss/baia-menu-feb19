@@ -1,106 +1,104 @@
 
-
-# Invoice Redesign: Uniform, Professional, Admin-Customizable
+# Payroll Enhancement: Rate Types, Payday Settings, Bonuses, and Employee of the Month
 
 ## Overview
 
-Redesign the PDF invoice and on-screen invoice view to be clean, modern, and professional. Add a new `invoice_settings` database table so admins can customize the invoice appearance (footer text, business hours, TIN, thank-you message, service charge %, and display preferences). Update the PDF generator and TabInvoice component to pull from these settings.
+Enhance the payroll system with flexible pay rate options (per hour/day/month), configurable payday schedules, per-employee bonuses, and an "Employee of the Month" feature with a bonus amount factored into payroll calculations.
 
-## Database Change
+## Database Changes
 
-### New table: `invoice_settings`
+### 1. Alter `employees` table
 
-A single-row settings table (similar to the existing `settings` table pattern) with:
+Add columns:
+- `rate_type` (text, default `'hourly'`) -- values: `'hourly'`, `'daily'`, `'monthly'`
+- `daily_rate` (numeric, default 0)
+- `monthly_rate` (numeric, default 0)
+
+The existing `hourly_rate` column stays. Admin picks which rate type applies per employee.
+
+### 2. Alter `payroll_payments` table
+
+Add column:
+- `bonus_amount` (numeric, default 0) -- bonus included in this payment
+
+### 3. New table: `employee_bonuses`
 
 | Column | Type | Default |
 |--------|------|---------|
 | id | uuid | gen_random_uuid() |
-| thank_you_message | text | 'Thank you for dining with us!' |
-| business_hours | text | 'Open daily: 7AM - 10PM' |
-| footer_text | text | '' |
-| tin_number | text | '' |
-| service_charge_pct | numeric | 10 |
-| show_service_charge | boolean | true |
-| show_payment_method | boolean | true |
+| employee_id | uuid | NOT NULL |
+| amount | numeric | 0 |
+| reason | text | '' |
+| bonus_month | date | NULL |
+| is_employee_of_month | boolean | false |
+| created_at | timestamptz | now() |
+
+RLS: Public read/insert/update/delete (matching existing pattern).
+
+### 4. New table: `payroll_settings`
+
+Single-row settings table:
+
+| Column | Type | Default |
+|--------|------|---------|
+| id | uuid | gen_random_uuid() |
+| payday_type | text | 'weekly' |
+| payday_day_of_week | integer | 6 (Saturday) |
+| payday_days_interval | integer | 15 |
+| eom_bonus_amount | numeric | 0 |
 | created_at | timestamptz | now() |
 | updated_at | timestamptz | now() |
 
-RLS: Public read/insert/update (matching existing pattern for settings tables).
+`payday_type` values: `'weekly'`, `'bimonthly'` (every 15 days), `'monthly'` (every 30 days).
+
+RLS: Public read/insert/update.
 
 ## File Changes
 
-### 1. `src/lib/generateInvoicePdf.ts` -- Full Redesign
+### 1. `src/components/admin/PayrollDashboard.tsx`
 
-**Header changes:**
-- Remove `charSpace: 3` from resort name -- render as normal text with clean kerning
-- Split layout: left side = business name + address + contact; right side = date, time, order type
-- Use proper font weights: light labels, bold values
-- Add thin horizontal rule divider below header
+**Employees sub-view changes:**
+- Add rate type selector (Per Hour / Per Day / Per Month) next to each employee
+- Show the relevant rate field based on selection (hourly_rate, daily_rate, or monthly_rate)
+- Add a "Bonuses" section per employee showing pending bonuses
+- Add inline bonus form: amount + reason + "Employee of the Month" toggle
+- Display total bonuses pending for each employee
 
-**Table improvements:**
-- Clean column headers with subtle background
-- Proper alignment: item left, qty center, price right, total right
-- Alternating row tints (keep existing)
+**Payroll settings section (new):**
+- Add a settings area at the top or as a new sub-view tab
+- Payday schedule selector: Weekly (pick day) / Every 15 Days / Every 30 Days
+- Day-of-week picker (Mon-Sun) when weekly is selected
+- Employee of the Month default bonus amount
+- Pay period banner updates dynamically based on settings
 
-**Totals:**
-- Pull service charge % from invoice_settings instead of hardcoding "10%"
-- Grand total with accent background (keep existing)
+**Summary sub-view changes:**
+- Factor in bonuses when showing total earnings per employee
+- Show bonus line items in employee summary
+- Calculate daily/monthly rate employees differently:
+  - Daily: count distinct work days x daily_rate
+  - Monthly: monthly_rate (prorated if partial period)
 
-**Footer (new):**
-- Thin divider line
-- Thank-you message from `invoice_settings`
-- Business hours from `invoice_settings`
-- Social media handles from `resort_profile` (Instagram, website)
-- TIN number from `invoice_settings` (if set)
-- Footer custom text from `invoice_settings` (if set)
+**Payments sub-view changes:**
+- Show bonus amount as separate line in payment records
+- Include bonuses in payment totals
 
-**Function signature update:**
-- Accept optional `invoiceSettings` parameter alongside `profile`
+**CSV export:**
+- Add bonus columns to export
 
-### 2. `src/components/admin/TabInvoice.tsx` -- On-Screen Invoice Redesign
+### 2. `src/pages/EmployeePage.tsx`
 
-**Header section:**
-- Remove `tracking-[0.3em]` letter spacing from resort name
-- Reorganize: left-align business details, right-align date/type
-- Cleaner, more minimal card design
+- Update clock-out pay calculation to use the correct rate type
+- For daily-rate employees: total_pay = daily_rate (flat per day, regardless of hours)
+- For monthly-rate employees: total_pay = monthly_rate / working_days_in_month
+- For hourly-rate employees: keep existing hours x rate logic
 
-**Footer section (new):**
-- Display thank-you message, business hours, social handles below grand total
-- Pull from `invoice_settings` query
+### 3. New hook: `src/hooks/usePayrollSettings.ts`
 
-**Pass invoice settings to PDF generator** when downloading.
+React-query hook to fetch/upsert the single row from `payroll_settings`.
 
-### 3. New component: `src/components/admin/InvoiceSettingsForm.tsx`
+## Technical Details
 
-Admin form with fields for:
-- Thank-you message (textarea)
-- Business hours (text input)
-- Additional footer text (textarea)
-- TIN/VAT number (text input)
-- Service charge % (number input)
-- Toggle: show/hide service charge breakdown
-- Toggle: show/hide payment method
-
-Uses the same inline CRUD pattern as ResortProfileForm (single-row upsert).
-
-### 4. `src/pages/AdminPage.tsx`
-
-- Import and render `InvoiceSettingsForm` inside the Setup tab, after Kitchen Settings section
-- Add section header "Invoice Settings"
-
-### 5. New hook: `src/hooks/useInvoiceSettings.ts`
-
-Simple react-query hook to fetch the single row from `invoice_settings`, similar to `useResortProfile`.
-
-### 6. `buildInvoiceWhatsAppText` update
-
-- Include footer info (business hours, website) in WhatsApp text
-- Use dynamic service charge label
-
-## Technical Notes
-
-- The resort_profile already has logo_url, address, phone, email, website_url, social links -- these will continue to be used for the invoice header (no duplication)
-- Invoice-specific settings (footer text, TIN, service charge %) go in the new `invoice_settings` table
-- No changes to existing tables
-- The `charSpace` removal fixes the "B A I A  P A L A W A N" spacing issue in the PDF
-
+- Rate type logic: When `rate_type = 'daily'`, shift `total_pay` = `daily_rate` (one flat amount per calendar day worked, even with split shifts). When `rate_type = 'monthly'`, shift tracking is for attendance only; pay is calculated as `monthly_rate / working_days`.
+- Pay period calculation changes from hardcoded Sunday-Saturday to dynamic based on `payroll_settings.payday_type` and `payday_day_of_week`.
+- Employee of the Month: admin selects one employee per month via a toggle in the bonuses section. The `eom_bonus_amount` from `payroll_settings` is auto-populated but editable per instance.
+- Bonuses are standalone records that get factored into the payroll summary but are separate from shift-based pay.
