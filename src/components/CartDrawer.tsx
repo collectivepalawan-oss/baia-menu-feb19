@@ -162,15 +162,23 @@ const CartDrawer = ({ open, onOpenChange, mode, orderType: initialOrderType, loc
         tabId = newTab.id;
       }
 
+      // Determine which departments are involved
+      const orderItems = cart.items.map(i => ({ name: i.name, qty: i.quantity, price: i.price, department: i.department || 'kitchen' }));
+      const hasKitchen = orderItems.some(i => i.department === 'kitchen' || i.department === 'both');
+      const hasBar = orderItems.some(i => i.department === 'bar' || i.department === 'both');
+
       const insertData: any = {
         order_type: selectedOrderType,
         location_detail: selectedLocation,
-        items: cart.items.map(i => ({ name: i.name, qty: i.quantity, price: i.price, department: i.department || 'kitchen' })),
+        items: orderItems,
         total: subtotal,
         service_charge: serviceCharge,
         payment_type: isStaff ? paymentType : '',
         status: 'New',
         tab_id: tabId,
+        // Set department statuses: 'pending' if dept has items, 'ready' if not (nothing to do)
+        kitchen_status: hasKitchen ? 'pending' : 'ready',
+        bar_status: hasBar ? 'pending' : 'ready',
       };
       if (scheduledFor) insertData.scheduled_for = scheduledFor;
 

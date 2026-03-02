@@ -8,25 +8,37 @@ import { ChefHat, Truck, AlertTriangle, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { Home, LogOut } from 'lucide-react';
+import { deductInventoryForOrder } from '@/lib/inventoryDeduction';
 
 interface DepartmentOrdersViewProps {
   department: 'kitchen' | 'bar';
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  New: 'bg-gold/20 text-gold border-gold/40',
-  Preparing: 'bg-orange-500/20 text-orange-400 border-orange-400/40',
-  Served: 'bg-blue-500/20 text-blue-400 border-blue-400/40',
+type DeptStatus = 'pending' | 'preparing' | 'ready';
+
+const DEPT_STATUS_LABELS: Record<DeptStatus, string> = {
+  pending: 'New',
+  preparing: 'Preparing',
+  ready: 'Ready',
 };
 
-const STATUSES = ['New', 'Preparing', 'Served'];
+const DEPT_STATUS_COLORS: Record<DeptStatus, string> = {
+  pending: 'bg-gold/20 text-gold border-gold/40',
+  preparing: 'bg-orange-500/20 text-orange-400 border-orange-400/40',
+  ready: 'bg-emerald-500/20 text-emerald-400 border-emerald-400/40',
+};
+
+const DEPT_TABS: DeptStatus[] = ['pending', 'preparing', 'ready'];
 
 const DepartmentOrdersView = ({ department }: DepartmentOrdersViewProps) => {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const audioCtxRef = useRef<AudioContext | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [activeStatus, setActiveStatus] = useState('New');
+  const [activeTab, setActiveTab] = useState<DeptStatus>('pending');
+
+  const statusField = department === 'kitchen' ? 'kitchen_status' : 'bar_status';
+  const otherStatusField = department === 'kitchen' ? 'bar_status' : 'kitchen_status';
 
   // Unlock AudioContext
   useEffect(() => {
@@ -98,13 +110,21 @@ const DepartmentOrdersView = ({ department }: DepartmentOrdersViewProps) => {
     });
   }, [allOrders, department]);
 
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = { New: 0, Preparing: 0, Served: 0 };
-    orders.forEach(o => { if (counts[o.status] !== undefined) counts[o.status]++; });
-    return counts;
-  }, [orders]);
+  // Get department-specific status for an order
+  const getDeptStatus = (order: any): DeptStatus => {
+    const val = order[statusField] as string;
+    if (val === 'preparing') return 'preparing';
+    if (val === 'ready') return 'ready';
+    return 'pending';
+  };
 
-  const hasNewOrders = statusCounts.New > 0;
+  const statusCounts = useMemo(() => {
+    const counts: Record<DeptStatus, number> = { pending: 0, preparing: 0, ready: 0 };
+    orders.forEach(o => { counts[getDeptStatus(o)]++; });
+    return counts;
+  }, [orders, statusField]);
+
+  const hasNewOrders = statusCounts.pending > 0;
 
   useEffect(() => {
     if (hasNewOrders) {
@@ -117,12 +137,55 @@ const DepartmentOrdersView = ({ department }: DepartmentOrdersViewProps) => {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [hasNewOrders, playChime]);
 
-  const filtered = useMemo(() => orders.filter(o => o.status === activeStatus), [orders, activeStatus]);
+  const filtered = useMemo(() => orders.filter(o => getDeptStatus(o) === activeTab), [orders, activeTab, statusField]);
 
-  const advanceOrder = async (orderId: string, nextStatus: string) => {
-    await supabase.from('orders').update({ status: nextStatus }).eq('id', orderId);
+  // Check if order has items for the other department
+  const hasOtherDeptItems = (order: any): boolean => {
+    const items = (order.items as any[]) || [];
+    const otherDept = department === 'kitchen' ? 'bar' : 'kitchen';
+    return items.some(item => {
+      const d = item.department || 'kitchen';
+      return d === otherDept || d === 'both';
+    });
+  };
+
+  const advanceDeptStatus = async (order: any, nextDeptStatus: DeptStatus) => {
+    const updateData: any = { [statusField]: nextDeptStatus };
+
+    // If this department is now ready, check if the other department is also ready
+    // If so, advance the overall order status
+    if (nextDeptStatus === 'ready') {
+      const otherStatus = order[otherStatusField] as string;
+      const otherHasItems = hasOtherDeptItems(order);
+      
+      // Overall is "Served" when all departments are ready
+      if (!otherHasItems || otherStatus === 'ready') {
+        updateData.status = 'Served';
+      }
+    }
+
+    // If moving to preparing and overall is still New, advance overall to Preparing
+    if (nextDeptStatus === 'preparing' && order.status === 'New') {
+      updateData.status = 'Preparing';
+    }
+
+    await supabase.from('orders').update(updateData).eq('id', order.id);
+
+    // Deduct inventory when this department starts preparing
+    if (nextDeptStatus === 'preparing') {
+      const items = (order.items as any[]) || [];
+      // Only deduct items belonging to this department
+      const deptItems = items.filter((item: any) => {
+        const d = item.department || 'kitchen';
+        return d === department || d === 'both';
+      });
+      if (deptItems.length > 0) {
+        await deductInventoryForOrder(order.id, deptItems);
+      }
+    }
+
     qc.invalidateQueries({ queryKey: [`orders-${department}`] });
-    toast.success(`Order → ${nextStatus}`);
+    toast.success(`${department === 'kitchen' ? 'Kitchen' : 'Bar'} → ${DEPT_STATUS_LABELS[nextDeptStatus]}`);
   };
 
   const handleLogout = () => {
@@ -149,22 +212,22 @@ const DepartmentOrdersView = ({ department }: DepartmentOrdersViewProps) => {
         </div>
       </header>
 
-      {/* Status tabs */}
+      {/* Status tabs — department-specific */}
       <div className="flex flex-wrap gap-1 px-4 py-3">
-        {STATUSES.map(s => (
+        {DEPT_TABS.map(s => (
           <button
             key={s}
-            onClick={() => setActiveStatus(s)}
+            onClick={() => setActiveTab(s)}
             className={`font-display text-xs tracking-wider px-3 min-h-[44px] rounded-md flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              activeStatus === s
-                ? 'bg-gold/20 text-gold border border-gold/40'
+              activeTab === s
+                ? DEPT_STATUS_COLORS[s] + ' border'
                 : 'bg-secondary text-cream-dim border border-border'
-            } ${s === 'New' && hasNewOrders && activeStatus !== s ? 'tab-pulse' : ''}`}
+            } ${s === 'pending' && hasNewOrders && activeTab !== s ? 'tab-pulse' : ''}`}
           >
-            {s}
+            {DEPT_STATUS_LABELS[s]}
             {statusCounts[s] > 0 && (
               <span className={`text-[10px] font-body font-bold rounded-full w-5 h-5 flex items-center justify-center ${
-                activeStatus === s ? 'bg-gold text-primary-foreground' : 'bg-muted text-muted-foreground'
+                activeTab === s ? 'bg-foreground/20 text-foreground' : 'bg-muted text-muted-foreground'
               }`}>
                 {statusCounts[s]}
               </span>
@@ -176,7 +239,7 @@ const DepartmentOrdersView = ({ department }: DepartmentOrdersViewProps) => {
       {/* Orders */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
         {filtered.length === 0 && (
-          <p className="font-body text-sm text-cream-dim text-center py-12">No {activeStatus.toLowerCase()} orders for {department}</p>
+          <p className="font-body text-sm text-cream-dim text-center py-12">No {DEPT_STATUS_LABELS[activeTab].toLowerCase()} orders for {department}</p>
         )}
         {filtered.map(order => {
           const allItems = (order.items as any[]) || [];
@@ -188,13 +251,18 @@ const DepartmentOrdersView = ({ department }: DepartmentOrdersViewProps) => {
             const d = item.department || 'kitchen';
             return d !== department && d !== 'both';
           });
-          const isNew = order.status === 'New';
+          const deptStatus = getDeptStatus(order);
+          const isPending = deptStatus === 'pending';
+
+          // Show other department status if order spans both
+          const otherDeptStatus = hasOtherDeptItems(order) ? (order[otherStatusField] as string || 'pending') : null;
+          const otherDeptLabel = department === 'kitchen' ? 'Bar' : 'Kitchen';
 
           return (
             <div key={order.id} className={`p-4 border rounded-lg transition-all ${
-              isNew ? 'border-gold new-order-card bg-gold/10' : 'border-border bg-card/50'
+              isPending ? 'border-gold new-order-card bg-gold/10' : 'border-border bg-card/50'
             }`}>
-              {isNew && (
+              {isPending && (
                 <div className="flex items-center gap-2 mb-3 bg-gold/20 rounded px-3 py-1.5 border border-gold/40">
                   <AlertTriangle className="w-4 h-4 text-gold blink-dot" />
                   <span className="font-display text-sm text-gold tracking-widest font-bold uppercase">New Order</span>
@@ -219,9 +287,16 @@ const DepartmentOrdersView = ({ department }: DepartmentOrdersViewProps) => {
                     {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
                   </p>
                 </div>
-                <Badge variant="outline" className={`font-body text-xs ${STATUS_COLORS[order.status]}`}>
-                  {order.status}
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  <Badge variant="outline" className={`font-body text-xs ${DEPT_STATUS_COLORS[deptStatus]}`}>
+                    {DEPT_STATUS_LABELS[deptStatus]}
+                  </Badge>
+                  {otherDeptStatus && (
+                    <Badge variant="outline" className="font-body text-[10px] bg-muted/50 text-muted-foreground border-border">
+                      {otherDeptLabel}: {otherDeptStatus}
+                    </Badge>
+                  )}
+                </div>
               </div>
 
               {/* Department items — highlighted */}
@@ -248,21 +323,21 @@ const DepartmentOrdersView = ({ department }: DepartmentOrdersViewProps) => {
               {/* Action */}
               <div className="pt-3 border-t border-border flex items-center justify-between">
                 <span className="font-display text-sm text-gold">₱{order.total.toLocaleString()}</span>
-                {order.status === 'New' && (
+                {deptStatus === 'pending' && (
                   <Button
-                    onClick={() => advanceOrder(order.id, 'Preparing')}
+                    onClick={() => advanceDeptStatus(order, 'preparing')}
                     className="font-body text-xs gap-1.5 bg-gold text-primary-foreground hover:bg-gold/90 font-bold"
                   >
                     <ChefHat className="w-4 h-4" /> Start Preparing
                   </Button>
                 )}
-                {order.status === 'Preparing' && (
+                {deptStatus === 'preparing' && (
                   <Button
-                    onClick={() => advanceOrder(order.id, 'Served')}
+                    onClick={() => advanceDeptStatus(order, 'ready')}
                     variant="outline"
                     className="font-body text-xs gap-1.5"
                   >
-                    <Truck className="w-4 h-4" /> Mark Served
+                    <Truck className="w-4 h-4" /> Mark Ready
                   </Button>
                 )}
               </div>

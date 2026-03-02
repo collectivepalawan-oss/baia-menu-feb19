@@ -118,6 +118,36 @@ const OrderCard = ({ order, onAdvance, resortProfile, onAddItems, onViewTab, onD
         </div>
       </div>
 
+      {/* Department status badges */}
+      {(order.kitchen_status || order.bar_status) && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {order.kitchen_status && order.kitchen_status !== 'ready' && (
+            <Badge variant="outline" className={`font-body text-[10px] ${
+              order.kitchen_status === 'pending' ? 'bg-gold/20 text-gold border-gold/40' : 'bg-orange-500/20 text-orange-400 border-orange-400/40'
+            }`}>
+              🍳 Kitchen: {order.kitchen_status}
+            </Badge>
+          )}
+          {order.kitchen_status === 'ready' && (
+            <Badge variant="outline" className="font-body text-[10px] bg-emerald-500/20 text-emerald-400 border-emerald-400/40">
+              🍳 Kitchen: ready
+            </Badge>
+          )}
+          {order.bar_status && order.bar_status !== 'ready' && (
+            <Badge variant="outline" className={`font-body text-[10px] ${
+              order.bar_status === 'pending' ? 'bg-gold/20 text-gold border-gold/40' : 'bg-orange-500/20 text-orange-400 border-orange-400/40'
+            }`}>
+              🍹 Bar: {order.bar_status}
+            </Badge>
+          )}
+          {order.bar_status === 'ready' && (
+            <Badge variant="outline" className="font-body text-[10px] bg-emerald-500/20 text-emerald-400 border-emerald-400/40">
+              🍹 Bar: ready
+            </Badge>
+          )}
+        </div>
+      )}
+
       {/* Items */}
       <div className="space-y-1 mb-3">
         {items.map((item: any, idx: number) => (

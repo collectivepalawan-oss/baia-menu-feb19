@@ -1061,10 +1061,12 @@ export type Database = {
       }
       orders: {
         Row: {
+          bar_status: string
           closed_at: string | null
           created_at: string
           id: string
           items: Json
+          kitchen_status: string
           location_detail: string | null
           order_type: string
           payment_type: string | null
@@ -1076,10 +1078,12 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          bar_status?: string
           closed_at?: string | null
           created_at?: string
           id?: string
           items?: Json
+          kitchen_status?: string
           location_detail?: string | null
           order_type?: string
           payment_type?: string | null
@@ -1091,10 +1095,12 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          bar_status?: string
           closed_at?: string | null
           created_at?: string
           id?: string
           items?: Json
+          kitchen_status?: string
           location_detail?: string | null
           order_type?: string
           payment_type?: string | null
