@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Plus, Trash2, Copy, Package, ClipboardList, Home, Pencil, Check, X } from 'lucide-react';
+import { Plus, Trash2, Copy, Package, ClipboardList, Home, Pencil, Check, X, Eye, EyeOff } from 'lucide-react';
 
 const HousekeepingConfig = () => {
   const qc = useQueryClient();
@@ -65,6 +65,7 @@ const HousekeepingConfig = () => {
 
   // ── Room Types State ──
   const [newRoomType, setNewRoomType] = useState('');
+  const [previewRoomTypeId, setPreviewRoomTypeId] = useState<string | null>(null);
   const [editingRoomTypeId, setEditingRoomTypeId] = useState<string | null>(null);
   const [editingRoomTypeName, setEditingRoomTypeName] = useState('');
 
@@ -247,43 +248,117 @@ const HousekeepingConfig = () => {
         <h4 className="font-display text-xs tracking-widest text-muted-foreground uppercase">Room Types</h4>
 
         <div className="space-y-2">
-          {roomTypes.map((rt: any) => (
-            <div key={rt.id} className="flex items-center gap-2 border border-border rounded-lg p-3">
-              {editingRoomTypeId === rt.id ? (
-                <div className="flex items-center gap-2 flex-1">
-                  <Input
-                    value={editingRoomTypeName}
-                    onChange={e => setEditingRoomTypeName(e.target.value)}
-                    className="bg-secondary border-border text-foreground font-body h-8 flex-1"
-                    onKeyDown={e => e.key === 'Enter' && saveRoomTypeName()}
-                    autoFocus
-                  />
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-green-500" onClick={saveRoomTypeName}>
-                    <Check className="w-3 h-3" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingRoomTypeId(null)}>
-                    <X className="w-3 h-3" />
-                  </Button>
+          {roomTypes.map((rt: any) => {
+            const isPreviewOpen = previewRoomTypeId === rt.id;
+            const previewChecklists = checklists.filter((c: any) => c.room_type_id === rt.id);
+            const previewPkgs = packages.filter((p: any) => p.room_type_id === rt.id);
+            return (
+              <div key={rt.id} className="space-y-0">
+                <div className="flex items-center gap-2 border border-border rounded-lg p-3">
+                  {editingRoomTypeId === rt.id ? (
+                    <div className="flex items-center gap-2 flex-1">
+                      <Input
+                        value={editingRoomTypeName}
+                        onChange={e => setEditingRoomTypeName(e.target.value)}
+                        className="bg-secondary border-border text-foreground font-body h-8 flex-1"
+                        onKeyDown={e => e.key === 'Enter' && saveRoomTypeName()}
+                        autoFocus
+                      />
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-green-500" onClick={saveRoomTypeName}>
+                        <Check className="w-3 h-3" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingRoomTypeId(null)}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="font-body text-sm text-foreground flex-1">{rt.name}</span>
+                      <Button variant="outline" size="sm" className="h-7 text-xs font-display gap-1" onClick={() => { setEditingRoomTypeId(rt.id); setEditingRoomTypeName(rt.name); }}>
+                        <Pencil className="w-3 h-3" /> Edit
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-7 text-xs font-display gap-1" onClick={() => scrollToChecklist(rt.id)}>
+                        <ClipboardList className="w-3 h-3" /> Checklist
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-7 text-xs font-display gap-1" onClick={() => scrollToPackage(rt.id)}>
+                        <Package className="w-3 h-3" /> Package
+                      </Button>
+                      <Button
+                        variant={isPreviewOpen ? 'secondary' : 'outline'}
+                        size="sm"
+                        className="h-7 text-xs font-display gap-1"
+                        onClick={() => setPreviewRoomTypeId(isPreviewOpen ? null : rt.id)}
+                      >
+                        {isPreviewOpen ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                        Preview
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => deleteRoomType(rt.id)} className="text-destructive h-7 w-7">
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </>
+                  )}
                 </div>
-              ) : (
-                <>
-                  <span className="font-body text-sm text-foreground flex-1">{rt.name}</span>
-                  <Button variant="outline" size="sm" className="h-7 text-xs font-display gap-1" onClick={() => { setEditingRoomTypeId(rt.id); setEditingRoomTypeName(rt.name); }}>
-                    <Pencil className="w-3 h-3" /> Edit
-                  </Button>
-                  <Button variant="outline" size="sm" className="h-7 text-xs font-display gap-1" onClick={() => scrollToChecklist(rt.id)}>
-                    <ClipboardList className="w-3 h-3" /> Checklist
-                  </Button>
-                  <Button variant="outline" size="sm" className="h-7 text-xs font-display gap-1" onClick={() => scrollToPackage(rt.id)}>
-                    <Package className="w-3 h-3" /> Package
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => deleteRoomType(rt.id)} className="text-destructive h-7 w-7">
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </>
-              )}
-            </div>
-          ))}
+
+                {/* Preview Panel */}
+                {isPreviewOpen && (
+                  <div className="bg-secondary/30 border-l-2 border-primary/50 rounded-b-lg p-4 space-y-4 ml-2 mr-2">
+                    {/* Inspection Checklist Preview */}
+                    <div>
+                      <p className="font-display text-xs tracking-widest text-muted-foreground uppercase mb-2">Inspection Checklist</p>
+                      {previewChecklists.length > 0 ? (
+                        <div className="space-y-1">
+                          {previewChecklists.map((item: any) => (
+                            <div key={item.id} className="flex items-center gap-2 text-sm font-body text-foreground">
+                              <Checkbox checked={false} disabled className="shrink-0" />
+                              <span className="flex-1">{item.item_label}</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${item.is_required ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                                {item.is_required ? 'Required' : 'Optional'}
+                              </span>
+                              {item.count_expected && (
+                                <span className="text-[10px] text-muted-foreground">Count: {item.count_expected}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="font-body text-xs text-muted-foreground italic">Not configured yet</p>
+                      )}
+                    </div>
+
+                    {/* Cleaning Packages Preview */}
+                    <div>
+                      <p className="font-display text-xs tracking-widest text-muted-foreground uppercase mb-2">Cleaning Packages</p>
+                      {previewPkgs.length > 0 ? (
+                        <div className="space-y-3">
+                          {previewPkgs.map((pkg: any) => {
+                            const items = packageItems.filter((pi: any) => pi.package_id === pkg.id);
+                            return (
+                              <div key={pkg.id}>
+                                <p className="font-body text-xs font-medium text-foreground mb-1">{pkg.name}</p>
+                                {items.length > 0 ? (
+                                  <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                                    {items.map((pi: any) => (
+                                      <span key={pi.id} className="font-body text-xs text-muted-foreground">
+                                        {getIngredientName(pi.ingredient_id)}: {pi.default_quantity} {getIngredientUnit(pi.ingredient_id)}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="font-body text-xs text-muted-foreground italic">No supplies added</p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="font-body text-xs text-muted-foreground italic">Not configured yet</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
           <div className="flex gap-2">
             <Input value={newRoomType} onChange={e => setNewRoomType(e.target.value)} placeholder="New room type (e.g. Suite)"
               className="bg-secondary border-border text-foreground font-body" onKeyDown={e => e.key === 'Enter' && addRoomType()} />
