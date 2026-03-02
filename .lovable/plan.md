@@ -1,96 +1,65 @@
 
 
-## Guest Self-Service Ordering
+## Implementation Plan: Room Passwords, Order Archive, and Expenses Bug Fix
 
-Enable accommodated guests to place orders directly from their phone, verified by room number and guest name, with all charges automatically added to their room bill.
+### 1. Room-Specific Passwords for Guest Ordering
 
----
+**Database Migration:**
+- Add `room_password TEXT` and `password_expires_at TIMESTAMPTZ` columns to `resort_ops_bookings`
+- Add index on `room_password` for quick lookup
 
-### How It Works
+**Check-In Flow (`src/components/admin/RoomsDashboard.tsx`):**
+- After inserting the booking (step 3, line ~348), auto-generate a 6-digit numeric password
+- Update the booking with `room_password` and `password_expires_at` (check_out + 1 day)
+- Show the password in the success toast so staff can give it to the guest (e.g., "Room password: 123456")
 
-1. On the landing page, a new "Guest Ordering" section appears below "View Menu" and "Staff Login"
-2. Guest enters their room number and name
-3. System verifies against active bookings (unit status = "occupied", check-in/check-out dates, guest name match)
-4. Once verified, guest is sent to the menu in a new "guest-order" mode
-5. Guest browses and adds items to cart
-6. CartDrawer auto-sets payment to "Charge to Room" with no payment selection needed
-7. Order is submitted, routed to Kitchen/Bar, and a room_transaction is created automatically
-8. Session stored in sessionStorage, expires after 4 hours
+**Landing Page (`src/pages/Index.tsx`):**
+- Add a "Room Password" input field (6-digit numeric) between guest name and "Start Ordering" button
+- Update `handleGuestVerify` to include password validation against `resort_ops_bookings.room_password`
+- Check that `password_expires_at` has not passed
 
----
+**Guest Session (`src/hooks/useGuestSession.ts`):**
+- No changes needed -- session structure remains the same
 
-### Changes
+### 2. "Served" Status Already Exists
 
-**1. Landing Page (`src/pages/Index.tsx`)**
+Looking at the code, "Served" is already implemented:
+- `OrderCard.tsx` line 13: `Served: { next: 'Paid', ... }`
+- `DepartmentOrdersView.tsx` line 94: queries include `'Served'` status
+- `StaffOrdersView.tsx` line 1: STATUSES includes `'Served'`
+- The kitchen/bar views auto-set status to "Served" when all departments mark ready (line 163 of DepartmentOrdersView)
 
-Add a "Guest Ordering" section below "View Menu" when no staff session is active:
-- Room number dropdown (populated from occupied units)
-- Guest name input field
-- "Start Ordering" button
-- Verification logic: query `units` (status = occupied) joined with `resort_ops_bookings` (today between check_in and check_out) joined with `resort_ops_guests` (full_name fuzzy match)
-- On success, store guest session in sessionStorage and navigate to `/menu?mode=guest-order`
+No changes needed here -- the status flow already works as described.
 
-**2. Guest Session Hook (`src/hooks/useGuestSession.ts`)** -- NEW
+### 3. Order Archive in Admin
 
-- Reads/writes `guest_session` key in sessionStorage
-- Stores: room_id, room_name, guest_name, booking_id, expires (4 hours)
-- Auto-clears on expiry
-- Provides `clearGuestSession()` for logout
+**New file: `src/components/admin/OrderArchive.tsx`**
+- Full-history order view with filters: date range, order type, payment type, search
+- Queries `orders` table without status filter, ordered by `created_at desc`
+- Shows all order details: items, total, staff, payment, timestamps
+- CSV export button
+- Pagination (load more)
 
-**3. Menu Page (`src/pages/MenuPage.tsx`)**
+**Admin Page (`src/pages/AdminPage.tsx`):**
+- Add "Archive" tab to the admin tabs list
+- Render `OrderArchive` component in that tab
 
-- Detect `mode=guest-order` from URL params
-- Show a banner at top: "Ordering for Room {name} - {guest}" with a "Sign Out" button
-- Pass mode through to CartDrawer
+### 4. Expenses Keyboard Bug Fix
 
-**4. Cart Drawer (`src/components/CartDrawer.tsx`)**
+**Root Cause:** `ExpenseFormFields` is defined as a component **inside** `ResortOpsDashboard`, which means it gets a new identity on every render. React unmounts and remounts it, causing input focus loss.
 
-- New mode: `guest-order`
-- When in guest-order mode:
-  - Auto-set `selectedOrderType` to "Room" and `selectedLocation` to guest's room name (from session)
-  - Auto-set `guestName` from session
-  - Auto-set `paymentType` to "Charge to Room"
-  - Hide order type selection, payment type selection, and guest name input (all pre-filled)
-  - Show a simple note: "All charges will be added to Room {name}"
-  - On submit, create room_transaction automatically (same as current "Charge to Room" logic)
-  - Staff name set to "Guest Self-Service"
-- After order sent, "Place Another Order" keeps the same room context (unlike staff reset)
+**Fix (`src/components/admin/ResortOpsDashboard.tsx`):**
+- Extract `ExpenseFormFields` to a standalone component outside the parent component (or at module level)
+- Pass `scannedFields` and `scanningReceipt` as props instead of relying on closure
+- This prevents React from destroying and recreating the inputs on each keystroke
 
-**5. Router (`src/App.tsx`)**
+### Technical Summary
 
-- No changes needed -- `/menu` is already public (no RequireAuth wrapper)
-
----
-
-### Technical Details
-
-**Guest Verification Query:**
-```sql
-SELECT u.id as unit_id, u.unit_name, g.full_name, b.id as booking_id
-FROM units u
-JOIN resort_ops_bookings b ON b.unit_id = u.id
-JOIN resort_ops_guests g ON g.id = b.guest_id
-WHERE u.status = 'occupied'
-  AND CURRENT_DATE >= b.check_in
-  AND CURRENT_DATE < b.check_out
-  AND LOWER(g.full_name) = LOWER(:guestName)
-  AND u.unit_name = :roomName
-```
-
-**Files to create:**
-- `src/hooks/useGuestSession.ts`
-
-**Files to modify:**
-- `src/pages/Index.tsx` -- Add guest ordering form
-- `src/pages/MenuPage.tsx` -- Add guest-order mode banner
-- `src/components/CartDrawer.tsx` -- Add guest-order mode with auto-filled fields
-
-**No database changes needed** -- all required tables and columns already exist.
-
-**Security:**
-- Guests can only order for their own verified occupied room
-- Session expires after 4 hours
-- Payment is always "Charge to Room" (no other options)
-- All orders visible in audit log marked as "Guest Self-Service"
-- No access to staff features, admin, kitchen, or bar views
+| Change | Files |
+|--------|-------|
+| DB migration: add password columns | Migration SQL |
+| Password generation at check-in | `src/components/admin/RoomsDashboard.tsx` |
+| Password field on landing page | `src/pages/Index.tsx` |
+| Order archive tab | New `src/components/admin/OrderArchive.tsx`, edit `src/pages/AdminPage.tsx` |
+| Expenses keyboard fix | `src/components/admin/ResortOpsDashboard.tsx` |
 
