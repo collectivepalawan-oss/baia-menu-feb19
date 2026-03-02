@@ -1,123 +1,132 @@
 
 
-## Step 1: Core Room Charging and Transaction Database
+## Step 2: Room Billing UI and Transaction Transparency
 
-### What We're Building
-A Billing Configuration section in Admin Setup that lets you manage taxes, service charges, payment methods, and room charging rules -- plus a `room_transactions` ledger that tracks every charge against a room/guest.
-
----
-
-### Database Changes
-
-**1. Create `billing_config` table** (single-row settings, like `invoice_settings`)
-
-| Column | Type | Default |
-|--------|------|---------|
-| id | UUID PK | gen_random_uuid() |
-| enable_tax | BOOLEAN | true |
-| tax_name | TEXT | 'VAT' |
-| tax_rate | NUMERIC(5,2) | 12 |
-| enable_service_charge | BOOLEAN | true |
-| service_charge_name | TEXT | 'Service Charge' |
-| service_charge_rate | NUMERIC(5,2) | 10 |
-| enable_city_tax | BOOLEAN | false |
-| city_tax_name | TEXT | '' |
-| city_tax_rate | NUMERIC(5,2) | 0 |
-| allow_room_charging | BOOLEAN | true |
-| require_deposit | BOOLEAN | false |
-| require_signature_above | NUMERIC | 5000 |
-| notify_charges_above | NUMERIC | 10000 |
-| default_payment_method | TEXT | 'Charge to Room' |
-| show_staff_on_receipt | BOOLEAN | true |
-| show_itemized_taxes | BOOLEAN | true |
-| show_payment_on_receipt | BOOLEAN | true |
-| show_room_on_receipt | BOOLEAN | false |
-| receipt_header | TEXT | '' |
-| receipt_footer | TEXT | 'Thank you! Please come again' |
-| created_at | TIMESTAMPTZ | now() |
-| updated_at | TIMESTAMPTZ | now() |
-
-**2. Create `payment_methods` table**
-
-| Column | Type | Default |
-|--------|------|---------|
-| id | UUID PK | gen_random_uuid() |
-| name | TEXT | NOT NULL |
-| is_active | BOOLEAN | true |
-| requires_approval | BOOLEAN | false |
-| sort_order | INTEGER | 0 |
-| created_at | TIMESTAMPTZ | now() |
-
-Seed with: Cash, Credit Card, Debit Card, Charge to Room, Complimentary, Bank Transfer, Foreign Currency.
-
-**3. Create `room_transactions` table**
-
-| Column | Type | Notes |
-|--------|------|-------|
-| id | UUID PK | |
-| unit_id | UUID | FK to units(id) |
-| unit_name | TEXT | Denormalized for display |
-| guest_name | TEXT | Nullable |
-| booking_id | UUID | FK to resort_ops_bookings(id), nullable |
-| transaction_type | TEXT | 'room_charge', 'payment', 'refund', 'adjustment' |
-| order_id | UUID | FK to orders(id), nullable |
-| amount | NUMERIC(10,2) | |
-| tax_amount | NUMERIC(10,2) | 0 |
-| service_charge_amount | NUMERIC(10,2) | 0 |
-| total_amount | NUMERIC(10,2) | |
-| payment_method | TEXT | |
-| staff_name | TEXT | |
-| notes | TEXT | |
-| created_at | TIMESTAMPTZ | now() |
-
-**4. Add columns to `orders` table**
-
-- `guest_name TEXT DEFAULT ''`
-- `room_id UUID` (nullable, references units)
-- `tax_details JSONB DEFAULT '{}'`
-- `staff_name TEXT DEFAULT ''`
-
-All tables get public RLS (matching the existing app pattern -- no Supabase Auth used).
+Building the front-end UI for the billing system using the Step 1 database infrastructure.
 
 ---
 
-### New UI Components
+### Phase 2.1: Enhanced CartDrawer with Room Charging
 
-**`BillingConfigForm.tsx`** -- New admin component under Setup tab
+**Modify `src/components/CartDrawer.tsx`**
 
-Sections:
-1. **Tax and Service Charges** -- toggles + name/rate fields for VAT, Service Charge, City Tax
-2. **Room Charging Rules** -- toggles for allow charging, require deposit, signature/notification thresholds
-3. **Payment Methods** -- checklist of active methods with add/edit/delete and drag-to-reorder
-4. **Receipt and Print Settings** -- toggles for staff name, itemized taxes, payment method, room number display; header/footer text fields
-
-Single "Save" button persists everything to `billing_config`.
-
-**`useBillingConfig.ts`** -- Hook to fetch billing_config (single row, like useInvoiceSettings pattern)
+- When order type is "Room", add a **guest name** input field and a **"Charge to Room" checkbox**
+- When "Charge to Room" is selected as payment, auto-create a `room_transactions` entry on order submit with the order's subtotal, tax, service charge, and total
+- Add VAT calculation using `billing_config.tax_rate` alongside the existing service charge logic (currently only SC is applied -- VAT is missing)
+- Persist `guest_name`, `room_id`, `tax_details` JSONB, and `staff_name` (from `localStorage emp_name`) on the order record
+- Show itemized tax breakdown in the summary section (Subtotal, SC, VAT, Total)
 
 ---
 
-### Integration Points
+### Phase 2.2: Room Billing Tab
 
-- The existing `InvoiceSettingsForm` stays as-is for now (it manages invoice-specific fields like thank_you_message). The new `BillingConfigForm` handles the broader billing/tax/payment config.
-- `CartDrawer.tsx` and `TabInvoice.tsx` will read from `billing_config` to compute taxes dynamically instead of hardcoding 10% service charge.
-- When an order is placed with "Charge to Room", a row is auto-inserted into `room_transactions`.
-- Payment method dropdowns across the app (TabInvoice close, order payment) will pull from the `payment_methods` table instead of hardcoded options.
+**Create `src/components/rooms/RoomBillingTab.tsx`**
+
+- New tab added to `RoomsDashboard.tsx` detail view alongside Guest, Orders, Docs, Notes, Tours, Vibe
+- Shows all `room_transactions` for the selected unit, sorted newest first
+- Displays running balance (sum of charges minus sum of payments)
+- Transaction list with date, description, amount, tax, SC, total, staff name
+- Summary section: total charges by category, total payments received, remaining balance
+- Action buttons: Add Payment, Add Adjustment, Print Bill, Checkout
+
+**Create `src/hooks/useRoomTransactions.ts`**
+
+- React Query hook fetching `room_transactions` filtered by `unit_id`
 
 ---
 
-### Files to Create
-- `src/components/admin/BillingConfigForm.tsx` -- Full billing config admin UI
-- `src/hooks/useBillingConfig.ts` -- React Query hook for billing_config table
-- `src/hooks/usePaymentMethods.ts` -- React Query hook for payment_methods table
-- Migration SQL for all 3 new tables + orders column additions
+### Phase 2.3: Add Payment Modal
 
-### Files to Modify
-- `src/pages/AdminPage.tsx` -- Add BillingConfigForm to Setup tab, import new component
-- `src/components/CartDrawer.tsx` -- Use billing_config for tax/SC calculations, add room charge flow
-- `src/components/admin/TabInvoice.tsx` -- Use payment_methods from DB, apply billing_config tax rates
-- `src/integrations/supabase/types.ts` -- Will auto-update after migration
+**Create `src/components/rooms/AddPaymentModal.tsx`**
 
-### Seed Data
-Insert 7 default payment methods into `payment_methods` and one default row into `billing_config` with sensible defaults (VAT 12%, SC 10%).
+- Dialog showing current balance
+- Payment amount input
+- Payment method selector (from `payment_methods` table)
+- Notes field
+- On submit: inserts a `room_transactions` row with `transaction_type: 'payment'` and negative amount to reduce balance
+- Logs to `audit_log`
+
+---
+
+### Phase 2.4: Adjustment Modal
+
+**Create `src/components/rooms/AdjustmentModal.tsx`**
+
+- Dialog with adjustment type selector (Discount, Void, Complimentary, Correction)
+- Transaction selector to pick which charge to adjust
+- Reason text field (required)
+- Manager name field for approval tracking
+- On submit: inserts a `room_transactions` row with `transaction_type: 'adjustment'` or `'refund'`
+- Logs to `audit_log`
+
+---
+
+### Phase 2.5: Checkout Modal
+
+**Create `src/components/rooms/CheckoutModal.tsx`**
+
+- Shows final bill summary: room charges (nights x rate from booking), all F&B charges, other charges
+- Lists all payments received with running total
+- Remaining balance calculation
+- Final payment method selector and amount input
+- On confirm:
+  1. Records final payment in `room_transactions`
+  2. Sets unit status to `to_clean`
+  3. Creates housekeeping order (reusing existing checkout logic from `RoomsDashboard`)
+  4. Logs to `audit_log`
+
+---
+
+### Phase 2.6: Audit Log Viewer
+
+**Create `src/components/admin/AuditLogView.tsx`**
+
+- New section accessible from Admin page (add as a tab or under an existing tab)
+- Reads from existing `audit_log` table
+- Filters: staff name, date range, action type, search text
+- Displays entries in a timeline format: timestamp, staff name, action, details
+- Shows summary stats: total actions today, most active staff
+- Real-time subscription on `audit_log` table for live updates
+
+**Modify `src/pages/AdminPage.tsx`**
+
+- Add an "Audit Log" tab trigger in the admin tabs
+
+---
+
+### Phase 2.7: Print Bill
+
+**Create `src/components/rooms/PrintBill.tsx`**
+
+- Generates a printer-friendly HTML bill using `billing_config` receipt settings (header, footer, show_staff, show_itemized_taxes)
+- Opens in a new window with `window.print()`
+- Includes guest name, room, dates, itemized transactions, totals, and payment summary
+
+---
+
+### Technical Details
+
+**Files to create:**
+- `src/components/rooms/RoomBillingTab.tsx`
+- `src/components/rooms/AddPaymentModal.tsx`
+- `src/components/rooms/AdjustmentModal.tsx`
+- `src/components/rooms/CheckoutModal.tsx`
+- `src/components/rooms/PrintBill.tsx`
+- `src/components/admin/AuditLogView.tsx`
+- `src/hooks/useRoomTransactions.ts`
+
+**Files to modify:**
+- `src/components/CartDrawer.tsx` -- Add guest name, VAT calc, room charge transaction creation, staff_name/tax_details persistence
+- `src/components/admin/RoomsDashboard.tsx` -- Add "Billing" to detail tabs, render `RoomBillingTab`
+- `src/pages/AdminPage.tsx` -- Add Audit Log tab
+- `src/lib/auditLog.ts` -- No changes needed (existing `logAudit` function is sufficient)
+
+**Database changes:** None -- all tables already exist from Step 1. Enable realtime on `audit_log` for live feed.
+
+**Patterns to follow:**
+- Use existing `useBillingConfig` and `usePaymentMethods` hooks for dynamic config
+- Use existing `logAudit()` helper for all write operations
+- Match existing dark theme styling (`bg-secondary`, `border-border`, `font-display`, `text-cream-dim`)
+- Use existing Dialog/Drawer component patterns from the UI library
+- Mobile-first layout matching existing 44px min touch targets
 
