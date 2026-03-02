@@ -208,6 +208,12 @@ const Index = () => {
                 🍹 Bar
               </button>
             </div>
+            <button
+              onClick={() => navigate('/housekeeper')}
+              className="font-display text-sm tracking-wider py-3 border border-foreground/10 text-cream-dim hover:bg-foreground/5 transition-colors"
+            >
+              🧹 Housekeeping
+            </button>
             {session.isAdmin && (
               <button
                 onClick={() => navigate('/admin')}

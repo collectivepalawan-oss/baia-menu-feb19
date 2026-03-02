@@ -828,48 +828,79 @@ export type Database = {
       }
       housekeeping_orders: {
         Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          accepted_by_name: string
           assigned_to: string | null
+          cleaning_by_name: string
           cleaning_completed_at: string | null
           cleaning_notes: string
+          completed_by_name: string
           created_at: string
           damage_notes: string
           id: string
+          inspection_by_name: string
           inspection_completed_at: string | null
           inspection_data: Json | null
+          priority: string
           room_type_id: string | null
           status: string
           supplies_used: Json | null
+          time_to_complete_minutes: number | null
           unit_name: string
         }
         Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          accepted_by_name?: string
           assigned_to?: string | null
+          cleaning_by_name?: string
           cleaning_completed_at?: string | null
           cleaning_notes?: string
+          completed_by_name?: string
           created_at?: string
           damage_notes?: string
           id?: string
+          inspection_by_name?: string
           inspection_completed_at?: string | null
           inspection_data?: Json | null
+          priority?: string
           room_type_id?: string | null
           status?: string
           supplies_used?: Json | null
+          time_to_complete_minutes?: number | null
           unit_name?: string
         }
         Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          accepted_by_name?: string
           assigned_to?: string | null
+          cleaning_by_name?: string
           cleaning_completed_at?: string | null
           cleaning_notes?: string
+          completed_by_name?: string
           created_at?: string
           damage_notes?: string
           id?: string
+          inspection_by_name?: string
           inspection_completed_at?: string | null
           inspection_data?: Json | null
+          priority?: string
           room_type_id?: string | null
           status?: string
           supplies_used?: Json | null
+          time_to_complete_minutes?: number | null
           unit_name?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "housekeeping_orders_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "housekeeping_orders_assigned_to_fkey"
             columns: ["assigned_to"]
