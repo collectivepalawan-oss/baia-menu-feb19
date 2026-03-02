@@ -1,137 +1,123 @@
 
 
-## Department Routing, Device Management, and Secure Login System
+## Step 1: Core Room Charging and Transaction Database
 
-This is a large feature set with multiple interconnected parts. Here is the phased plan:
-
----
-
-### Phase 1: Database Changes
-
-**1a. Add `department` column to `menu_items`**
-- Add column `department TEXT NOT NULL DEFAULT 'kitchen'` with allowed values: `kitchen`, `bar`, `both`
-- Auto-assign existing categories: Cocktails and Breakfast Drinks -> `bar`, everything else -> `kitchen`
-
-**1b. Create `devices` table**
-```text
-devices
-  id              UUID PK
-  device_name     TEXT (e.g. "Kitchen Tablet #1")
-  device_id       TEXT UNIQUE (browser fingerprint / manual ID)
-  department      TEXT ('kitchen' | 'bar' | 'reception' | 'admin')
-  is_active       BOOLEAN DEFAULT true
-  last_login_at   TIMESTAMPTZ
-  last_login_employee_id UUID
-  created_at      TIMESTAMPTZ DEFAULT now()
-```
-- Public RLS (matching existing pattern for this app -- no Supabase Auth used)
-
-**1c. Add `department` column to `menu_categories`**
-- Add `department TEXT NOT NULL DEFAULT 'kitchen'` so categories themselves can be tagged
+### What We're Building
+A Billing Configuration section in Admin Setup that lets you manage taxes, service charges, payment methods, and room charging rules -- plus a `room_transactions` ledger that tracks every charge against a room/guest.
 
 ---
 
-### Phase 2: Admin UI -- Department Assignment
+### Database Changes
 
-**In `AdminPage.tsx` Menu tab:**
-- Add a Department dropdown (Kitchen / Bar / Both) to each menu item row in the admin menu editor
-- Add a Department dropdown to each category in the categories manager
-- Add a new "Devices" section under the Setup tab for registering/managing tablets
+**1. Create `billing_config` table** (single-row settings, like `invoice_settings`)
 
-**Devices admin section (new component `DeviceManager.tsx`):**
-- Table listing all registered devices with name, department, status, last login
-- Add/Edit/Delete device entries
-- Toggle active/inactive
+| Column | Type | Default |
+|--------|------|---------|
+| id | UUID PK | gen_random_uuid() |
+| enable_tax | BOOLEAN | true |
+| tax_name | TEXT | 'VAT' |
+| tax_rate | NUMERIC(5,2) | 12 |
+| enable_service_charge | BOOLEAN | true |
+| service_charge_name | TEXT | 'Service Charge' |
+| service_charge_rate | NUMERIC(5,2) | 10 |
+| enable_city_tax | BOOLEAN | false |
+| city_tax_name | TEXT | '' |
+| city_tax_rate | NUMERIC(5,2) | 0 |
+| allow_room_charging | BOOLEAN | true |
+| require_deposit | BOOLEAN | false |
+| require_signature_above | NUMERIC | 5000 |
+| notify_charges_above | NUMERIC | 10000 |
+| default_payment_method | TEXT | 'Charge to Room' |
+| show_staff_on_receipt | BOOLEAN | true |
+| show_itemized_taxes | BOOLEAN | true |
+| show_payment_on_receipt | BOOLEAN | true |
+| show_room_on_receipt | BOOLEAN | false |
+| receipt_header | TEXT | '' |
+| receipt_footer | TEXT | 'Thank you! Please come again' |
+| created_at | TIMESTAMPTZ | now() |
+| updated_at | TIMESTAMPTZ | now() |
 
----
+**2. Create `payment_methods` table**
 
-### Phase 3: Department-Specific Order Views
+| Column | Type | Default |
+|--------|------|---------|
+| id | UUID PK | gen_random_uuid() |
+| name | TEXT | NOT NULL |
+| is_active | BOOLEAN | true |
+| requires_approval | BOOLEAN | false |
+| sort_order | INTEGER | 0 |
+| created_at | TIMESTAMPTZ | now() |
 
-**New pages:**
-- `/kitchen` -- Kitchen tablet view showing only orders with kitchen items
-- `/bar` -- Bar tablet view showing only orders with bar items
+Seed with: Cash, Credit Card, Debit Card, Charge to Room, Complimentary, Bank Transfer, Foreign Currency.
 
-**Order splitting logic:**
-- When an order is placed containing both kitchen and bar items, both views see the order but only their relevant items are highlighted
-- Each view filters `order.items` (JSONB) by the item's department
-- Real-time subscription for instant updates
+**3. Create `room_transactions` table**
 
-**New components:**
-- `DepartmentOrdersView.tsx` -- Shared component parameterized by department, reuses existing `OrderCard` pattern but filters items
+| Column | Type | Notes |
+|--------|------|-------|
+| id | UUID PK | |
+| unit_id | UUID | FK to units(id) |
+| unit_name | TEXT | Denormalized for display |
+| guest_name | TEXT | Nullable |
+| booking_id | UUID | FK to resort_ops_bookings(id), nullable |
+| transaction_type | TEXT | 'room_charge', 'payment', 'refund', 'adjustment' |
+| order_id | UUID | FK to orders(id), nullable |
+| amount | NUMERIC(10,2) | |
+| tax_amount | NUMERIC(10,2) | 0 |
+| service_charge_amount | NUMERIC(10,2) | 0 |
+| total_amount | NUMERIC(10,2) | |
+| payment_method | TEXT | |
+| staff_name | TEXT | |
+| notes | TEXT | |
+| created_at | TIMESTAMPTZ | now() |
 
----
+**4. Add columns to `orders` table**
 
-### Phase 4: Login Gate for All Pages
+- `guest_name TEXT DEFAULT ''`
+- `room_id UUID` (nullable, references units)
+- `tax_details JSONB DEFAULT '{}'`
+- `staff_name TEXT DEFAULT ''`
 
-**Enhance the existing session system:**
-- The app already uses Name + PIN via the `employee-auth` edge function
-- Create a `RequireAuth` wrapper component that checks `sessionStorage` for a valid staff session
-- If no session, redirect to `/` (home login screen)
-- If session exists but employee lacks department access for the current device, show "Unauthorized" message
-
-**Route protection in `App.tsx`:**
-- Wrap `/kitchen`, `/bar`, `/order-type`, `/menu` (staff mode), `/admin`, `/employee`, `/manager` routes with `RequireAuth`
-- Guest menu (`/menu?mode=guest`) remains public -- view-only, no ordering
-- The home page `/` remains public (it IS the login page)
-
-**Session enhancements:**
-- Add 30-minute inactivity timeout (reset on any interaction)
-- Add device ID tracking to sessions
-- Prevent duplicate sessions (one device = one active session)
-
----
-
-### Phase 5: Order Routing Logic
-
-**When a new order is submitted:**
-1. Each item in the order JSONB gets a `department` field added at submission time
-2. Kitchen view filters items where `department = 'kitchen'` or `'both'`
-3. Bar view filters items where `department = 'bar'` or `'both'`
-4. Reception/Admin sees all items
-
-**Status tracking per department:**
-- Add `kitchen_status` and `bar_status` fields to orders (or track within the items JSONB)
-- Kitchen marks their items ready independently
-- Bar marks their items ready independently
-- Order overall status = "Ready" only when both departments are done
-
----
-
-### Technical Details
-
-**Files to create:**
-- `src/components/admin/DeviceManager.tsx` -- Device registration admin UI
-- `src/components/DepartmentOrdersView.tsx` -- Shared department-filtered order view
-- `src/components/RequireAuth.tsx` -- Auth wrapper with session + device + department checks
-- `src/pages/KitchenPage.tsx` -- Kitchen tablet page
-- `src/pages/BarPage.tsx` -- Bar tablet page
-
-**Files to modify:**
-- `src/App.tsx` -- Add new routes, wrap protected routes
-- `src/pages/AdminPage.tsx` -- Add department dropdown to menu items, add Devices section to Setup tab
-- `src/pages/MenuPage.tsx` -- Include department field when building order items
-- `src/pages/Index.tsx` -- Add device detection/registration flow
-- `src/lib/cart.ts` -- Add department to CartItem type
-- `src/components/staff/StaffOrdersView.tsx` -- Add department filtering capability
-
-**Database migrations:**
-1. `ALTER TABLE menu_items ADD COLUMN department TEXT NOT NULL DEFAULT 'kitchen'`
-2. `UPDATE menu_items SET department = 'bar' WHERE category IN ('Cocktails', 'Breakfast Drinks')`
-3. `CREATE TABLE devices (...)` with RLS
-4. `ALTER TABLE menu_categories ADD COLUMN department TEXT NOT NULL DEFAULT 'kitchen'`
-
-**Edge function changes:** None needed -- existing `employee-auth` already handles authentication.
+All tables get public RLS (matching the existing app pattern -- no Supabase Auth used).
 
 ---
 
-### Implementation Order
+### New UI Components
 
-1. Database migrations (department column + devices table)
-2. Auto-assign departments to existing menu items
-3. Admin UI for department assignment on menu items
-4. Device manager admin UI
-5. `RequireAuth` component with session/inactivity management
-6. Kitchen and Bar page views with department filtering
-7. Route protection across all pages
-8. Order routing with department-split display
+**`BillingConfigForm.tsx`** -- New admin component under Setup tab
+
+Sections:
+1. **Tax and Service Charges** -- toggles + name/rate fields for VAT, Service Charge, City Tax
+2. **Room Charging Rules** -- toggles for allow charging, require deposit, signature/notification thresholds
+3. **Payment Methods** -- checklist of active methods with add/edit/delete and drag-to-reorder
+4. **Receipt and Print Settings** -- toggles for staff name, itemized taxes, payment method, room number display; header/footer text fields
+
+Single "Save" button persists everything to `billing_config`.
+
+**`useBillingConfig.ts`** -- Hook to fetch billing_config (single row, like useInvoiceSettings pattern)
+
+---
+
+### Integration Points
+
+- The existing `InvoiceSettingsForm` stays as-is for now (it manages invoice-specific fields like thank_you_message). The new `BillingConfigForm` handles the broader billing/tax/payment config.
+- `CartDrawer.tsx` and `TabInvoice.tsx` will read from `billing_config` to compute taxes dynamically instead of hardcoding 10% service charge.
+- When an order is placed with "Charge to Room", a row is auto-inserted into `room_transactions`.
+- Payment method dropdowns across the app (TabInvoice close, order payment) will pull from the `payment_methods` table instead of hardcoded options.
+
+---
+
+### Files to Create
+- `src/components/admin/BillingConfigForm.tsx` -- Full billing config admin UI
+- `src/hooks/useBillingConfig.ts` -- React Query hook for billing_config table
+- `src/hooks/usePaymentMethods.ts` -- React Query hook for payment_methods table
+- Migration SQL for all 3 new tables + orders column additions
+
+### Files to Modify
+- `src/pages/AdminPage.tsx` -- Add BillingConfigForm to Setup tab, import new component
+- `src/components/CartDrawer.tsx` -- Use billing_config for tax/SC calculations, add room charge flow
+- `src/components/admin/TabInvoice.tsx` -- Use payment_methods from DB, apply billing_config tax rates
+- `src/integrations/supabase/types.ts` -- Will auto-update after migration
+
+### Seed Data
+Insert 7 default payment methods into `payment_methods` and one default row into `billing_config` with sensible defaults (VAT 12%, SC 10%).
 
