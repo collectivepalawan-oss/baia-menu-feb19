@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, CheckCircle, Camera, Upload } from 'lucide-react';
+import { ArrowLeft, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { differenceInMinutes } from 'date-fns';
+import PasswordConfirmModal from '@/components/housekeeping/PasswordConfirmModal';
 
 const from = (table: string) => supabase.from(table as any);
 
@@ -19,6 +21,9 @@ interface HousekeepingInspectionProps {
 const HousekeepingInspection = ({ order, onClose }: HousekeepingInspectionProps) => {
   const qc = useQueryClient();
   const step = order.status === 'pending_inspection' || order.status === 'inspecting' ? 'inspection' : 'cleaning';
+
+  // PIN confirmation state
+  const [pinAction, setPinAction] = useState<'inspection' | 'cleaning' | null>(null);
 
   // ── Checklist items for this room type ──
   const { data: checklistItems = [] } = useQuery({
@@ -109,8 +114,8 @@ const HousekeepingInspection = ({ order, onClose }: HousekeepingInspectionProps)
 
   const getIngredient = (id: string) => ingredients.find((i: any) => i.id === id);
 
-  // ── Complete Inspection ──
-  const completeInspection = async () => {
+  // ── Complete Inspection (called after PIN confirm) ──
+  const completeInspection = async (confirmedBy: { id: string; name: string; display_name: string }) => {
     setInspecting(true);
     try {
       const inspectionData = checklistItems.map((item: any) => ({
@@ -127,9 +132,11 @@ const HousekeepingInspection = ({ order, onClose }: HousekeepingInspectionProps)
         damage_notes: damageNotes,
         assigned_to: assignedTo || null,
         inspection_completed_at: new Date().toISOString(),
+        inspection_by_name: confirmedBy.display_name || confirmedBy.name,
       } as any).eq('id', order.id);
 
       qc.invalidateQueries({ queryKey: ['housekeeping-orders'] });
+      qc.invalidateQueries({ queryKey: ['housekeeping-orders-all'] });
       toast.success('Inspection completed — proceed to cleaning');
     } catch (err: any) {
       toast.error(err.message || 'Failed to complete inspection');
@@ -138,8 +145,8 @@ const HousekeepingInspection = ({ order, onClose }: HousekeepingInspectionProps)
     }
   };
 
-  // ── Complete Cleaning (with inventory deduction) ──
-  const completeCleaning = async () => {
+  // ── Complete Cleaning (called after PIN confirm) ──
+  const completeCleaning = async (confirmedBy: { id: string; name: string; display_name: string }) => {
     setCleaning(true);
     try {
       // 1. Deduct inventory
@@ -148,20 +155,24 @@ const HousekeepingInspection = ({ order, onClose }: HousekeepingInspectionProps)
         const ing = getIngredient(ingredientId);
         if (!ing) continue;
 
-        // Deduct from ingredients.current_stock
         await supabase.from('ingredients').update({
           current_stock: Math.max(0, (ing as any).current_stock - qty),
         }).eq('id', ingredientId);
 
-        // Log to inventory_logs
         await supabase.from('inventory_logs').insert({
           ingredient_id: ingredientId,
           change_qty: -qty,
           reason: `housekeeping_clean:${order.unit_name}`,
+          department: (ing as any).department || 'housekeeping',
         });
       }
 
-      // 2. Update housekeeping order
+      // 2. Calculate time
+      const acceptedAt = order.accepted_at ? new Date(order.accepted_at) : null;
+      const now = new Date();
+      const timeMinutes = acceptedAt ? differenceInMinutes(now, acceptedAt) : null;
+
+      // 3. Update housekeeping order
       const suppliesUsed = Object.entries(supplyQuantities)
         .filter(([, qty]) => qty > 0)
         .map(([id, qty]) => ({
@@ -174,14 +185,18 @@ const HousekeepingInspection = ({ order, onClose }: HousekeepingInspectionProps)
         status: 'completed',
         cleaning_notes: cleaningNotes,
         supplies_used: suppliesUsed,
-        cleaning_completed_at: new Date().toISOString(),
+        cleaning_completed_at: now.toISOString(),
+        cleaning_by_name: confirmedBy.display_name || confirmedBy.name,
+        completed_by_name: confirmedBy.display_name || confirmedBy.name,
+        time_to_complete_minutes: timeMinutes,
       } as any).eq('id', order.id);
 
-      // 3. Set unit status to 'ready'
+      // 4. Set unit status to 'ready'
       await supabase.from('units').update({ status: 'ready' } as any)
         .eq('unit_name', order.unit_name);
 
       qc.invalidateQueries({ queryKey: ['housekeeping-orders'] });
+      qc.invalidateQueries({ queryKey: ['housekeeping-orders-all'] });
       qc.invalidateQueries({ queryKey: ['rooms-units'] });
       qc.invalidateQueries({ queryKey: ['ingredients'] });
       toast.success(`${order.unit_name} is now ready!`);
@@ -191,6 +206,15 @@ const HousekeepingInspection = ({ order, onClose }: HousekeepingInspectionProps)
     } finally {
       setCleaning(false);
     }
+  };
+
+  const handlePinConfirm = (employee: { id: string; name: string; display_name: string }) => {
+    if (pinAction === 'inspection') {
+      completeInspection(employee);
+    } else if (pinAction === 'cleaning') {
+      completeCleaning(employee);
+    }
+    setPinAction(null);
   };
 
   return (
@@ -214,7 +238,6 @@ const HousekeepingInspection = ({ order, onClose }: HousekeepingInspectionProps)
       </div>
 
       {step === 'inspection' ? (
-        /* ── STEP 1: INSPECTION ── */
         <div className="space-y-4">
           {/* Assign housekeeper */}
           <div>
@@ -280,7 +303,7 @@ const HousekeepingInspection = ({ order, onClose }: HousekeepingInspectionProps)
           </div>
 
           <Button
-            onClick={completeInspection}
+            onClick={() => setPinAction('inspection')}
             disabled={inspecting}
             className="w-full font-display tracking-wider min-h-[44px]"
           >
@@ -289,7 +312,6 @@ const HousekeepingInspection = ({ order, onClose }: HousekeepingInspectionProps)
           </Button>
         </div>
       ) : (
-        /* ── STEP 2: CLEANING ── */
         <div className="space-y-4">
           {/* Package selector */}
           {packages.length > 0 && (
@@ -354,7 +376,7 @@ const HousekeepingInspection = ({ order, onClose }: HousekeepingInspectionProps)
           </div>
 
           <Button
-            onClick={completeCleaning}
+            onClick={() => setPinAction('cleaning')}
             disabled={cleaning}
             variant="default"
             className="w-full font-display tracking-wider min-h-[44px] bg-emerald-600 hover:bg-emerald-700"
@@ -364,6 +386,18 @@ const HousekeepingInspection = ({ order, onClose }: HousekeepingInspectionProps)
           </Button>
         </div>
       )}
+
+      {/* PIN Confirmation Modal */}
+      <PasswordConfirmModal
+        open={!!pinAction}
+        onClose={() => setPinAction(null)}
+        onConfirm={handlePinConfirm}
+        title={pinAction === 'inspection' ? 'Confirm Inspection' : 'Confirm Cleaning Complete'}
+        description={pinAction === 'inspection'
+          ? 'Enter your PIN to confirm the inspection is complete.'
+          : 'Enter your PIN to confirm cleaning is done and mark the room as ready.'
+        }
+      />
     </div>
   );
 };
