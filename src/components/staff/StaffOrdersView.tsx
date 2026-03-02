@@ -148,7 +148,12 @@ const StaffOrdersView = () => {
 
   const handleSubmitAddItems = async () => {
     if (!addingToOrder || addCartTotal === 0) return;
-    const newItems = Object.entries(addCart).map(([, c]) => ({ name: c.name, price: c.price, qty: c.qty }));
+    const newItems = Object.entries(addCart).map(([id, c]) => {
+      const menuItem = menuItems.find((m: any) => m.id === id);
+      return { name: c.name, price: c.price, qty: c.qty, department: menuItem?.department || 'kitchen' };
+    });
+    const hasKitchen = newItems.some(i => i.department === 'kitchen' || i.department === 'both');
+    const hasBar = newItems.some(i => i.department === 'bar' || i.department === 'both');
     const newTotal = newItems.reduce((s, i) => s + i.price * i.qty, 0);
     const newServiceCharge = Math.round(newTotal * 0.1);
     await supabase.from('orders').insert({
@@ -159,6 +164,8 @@ const StaffOrdersView = () => {
       order_type: addingToOrder.order_type,
       location_detail: addingToOrder.location_detail,
       tab_id: addingToOrder.tab_id,
+      kitchen_status: hasKitchen ? 'pending' : 'ready',
+      bar_status: hasBar ? 'pending' : 'ready',
     });
     qc.invalidateQueries({ queryKey: ['orders-staff'] });
     setAddingToOrder(null);
