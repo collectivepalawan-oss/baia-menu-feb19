@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { LogOut, UtensilsCrossed, MapPin, Car, Bike, MessageSquare, Star, Receipt, ArrowLeft, ChevronRight } from 'lucide-react';
+import { setGuestSession } from '@/hooks/useGuestSession';
 
 const GUEST_PORTAL_KEY = 'guest_portal_session';
 
@@ -147,7 +148,10 @@ const GuestPortal = () => {
               <p className="font-body text-sm text-muted-foreground">{session.room_name} · Check-out: {new Date(session.check_out).toLocaleDateString()}</p>
             </div>
             <div className="grid grid-cols-2 gap-3 mb-6">
-              <Tile icon={<UtensilsCrossed className="w-5 h-5" />} label="Order Food" onClick={() => navigate('/menu?mode=guest-order')} />
+              <Tile icon={<UtensilsCrossed className="w-5 h-5" />} label="Order Food" onClick={() => {
+                setGuestSession({ room_id: session.room_id, room_name: session.room_name, guest_name: session.guest_name, booking_id: session.booking_id });
+                navigate('/menu?mode=guest-order');
+              }} />
               <Tile icon={<MapPin className="w-5 h-5" />} label="Book Tour" onClick={() => setView('tours')} />
               <Tile icon={<Car className="w-5 h-5" />} label="Transport" onClick={() => setView('transport')} />
               <Tile icon={<Bike className="w-5 h-5" />} label="Rent Scooter" onClick={() => setView('rentals')} />
