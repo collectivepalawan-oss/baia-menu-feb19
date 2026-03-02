@@ -233,7 +233,7 @@ const MenuPage = () => {
                 {filteredItems.map((item, idx) => {
                   const status = stockStatus[item.id];
                   const isSoldOut = !isBrowseOnly && (status?.soldOut || false);
-                  const isLowStock = !isBrowseOnly && (status?.lowStock || false);
+                  const isLowStock = isStaff && (status?.lowStock || false);
                   return (
                     <button
                       key={item.id}
