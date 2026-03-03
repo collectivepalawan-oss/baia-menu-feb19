@@ -1,37 +1,51 @@
 
 
-## Plan: Fresh Start — Clear All Operational Data
+## Plan: Real-time Guest Bill with Itemized Charges
 
-Keep all code, schema, settings, employees, menu items, categories, rooms/units, and configuration intact. Delete **data rows** from operational tables only.
+### Problem
+The Guest Portal "My Bill" view has no real-time subscription, so guests don't see new charges (food, tours, transport, rentals) until they manually refresh. The bill should update live as staff confirms items and charges them to the room.
 
-### Tables to Clear (using insert/delete tool)
+### Changes
 
-1. **Orders & related**: `orders` (all rows)
-2. **Inventory logs**: `inventory_logs`
-3. **Housekeeping orders**: `housekeeping_orders`
-4. **Audit log**: `audit_log`
-5. **Guest tours**: `guest_tours`
-6. **Guest requests**: `guest_requests`
-7. **Guest reviews**: `guest_reviews`
-8. **Guest notes**: `guest_notes`
-9. **Guest documents**: `guest_documents`
-10. **Guest vibe records**: `guest_vibe_records` and `interventions`
-11. **Employee shifts**: `employee_shifts`
-12. **Employee tasks**: `employee_tasks`
-13. **Expenses & expense history**: `expenses`, `expense_history`
-14. **Payroll payments**: `payroll_payments`
-15. **Employee bonuses**: `employee_bonuses`
+**1. Add Realtime Subscription to BillView** (`src/pages/GuestPortal.tsx`)
 
-### What stays untouched
-- `menu_items`, `menu_categories`, `recipe_ingredients`, `ingredients` — menu stays
-- `employees`, `employee_permissions` — staff stays
-- `units`, `room_types`, `bookings` — room config stays
-- `resort_profile`, `billing_config`, `invoice_settings`, `payroll_settings` — all settings
-- `order_types`, `payment_methods`, `app_options`, `devices` — config
-- `cleaning_packages`, `cleaning_package_items`, `housekeeping_checklists` — HK config
-- `rental_rates`, `request_categories`, `tour packages` — service config
-- All edge functions, code, and schema unchanged
+Add a Supabase realtime channel on `room_transactions` filtered by `booking_id` so the bill updates instantly when staff adds charges or payments. Pattern already exists in `RequestsTrackerView`.
 
-### Execution
-Run DELETE statements via the data tool for each table. Order matters for any FK dependencies (e.g., `interventions` before `guest_vibe_records`, `expense_history` before `expenses`).
+**2. Improve Bill Item Display**
+
+Each transaction row should show:
+- A category icon based on `notes` content (food order, tour, transport, rental, payment)
+- The transaction description (currently `t.notes || t.transaction_type`)
+- Staff name who processed it
+- Timestamp
+- Amount with color coding (charges vs payments)
+
+**3. Add Pending Items Section**
+
+Show a "Pending" section above the confirmed transactions that displays:
+- Pending tour bookings (from `tour_bookings` where status = 'pending')
+- Pending guest requests (transport/rentals from `guest_requests` where status = 'pending')
+- These appear greyed out with a "Pending confirmation" badge so the guest knows these will be charged once staff confirms
+
+This gives guests full visibility: what's been charged, what's been paid, and what's still pending.
+
+### Technical Details
+
+```typescript
+// Add realtime to BillView
+useEffect(() => {
+  const channel = supabase
+    .channel('guest-bill-realtime')
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'room_transactions',
+      filter: `booking_id=eq.${session.booking_id}`,
+    }, () => { qc.invalidateQueries({ queryKey: ['guest-bill', session.booking_id] }); })
+    .subscribe();
+  return () => { supabase.removeChannel(channel); };
+}, [session.booking_id, qc]);
+```
+
+- Fetch pending `tour_bookings` and `guest_requests` for the booking to show as "upcoming charges"
+- No database changes needed -- all tables already exist
+- Single file edit: `src/pages/GuestPortal.tsx` (BillView component, ~lines 798-849)
 
