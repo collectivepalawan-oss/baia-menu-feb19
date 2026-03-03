@@ -1,50 +1,77 @@
 
 
-# Fix Housekeeping Flow: Reduce PIN Prompts and Auto-Redirect
+# Fix Permissions, Order Flow, and Navigation
 
-## Problem
-1. After submitting inspection, the screen doesn't visually transition to cleaning -- the housekeeper has to leave and come back.
-2. Too many PIN prompts (4 total). Only 2 are needed for accountability.
-
-## Current vs New Flow
-
-```text
-CURRENT (4 PINs):                    NEW (2 PINs):
-Accept Assignment [PIN]              Accept Assignment [PIN]
-    |                                    |
-Do Inspection                        Do Inspection
-    |                                    |
-Submit Inspection [PIN] -- REMOVE    Submit Inspection [NO PIN]
-    |                                    |
-Screen stuck -- BUG                  Auto-transition to Cleaning
-    |                                    |
-Complete Cleaning [PIN]              Complete Cleaning [PIN]
-```
+## Overview
+Three critical fixes: (1) Remove payment requirement for Walk-In/Dine-In orders, (2) Use existing permissions to control which navigation tiles staff can see, (3) Use permissions to control action buttons in Kitchen/Bar views.
 
 ## Changes
 
-### File: `src/components/admin/HousekeepingInspection.tsx`
+### 1. CartDrawer: Remove Payment Requirement for Walk-In and Dine-In
+**File: `src/components/CartDrawer.tsx`**
 
-**1. Remove PIN from inspection submission**
-- Currently: clicking "Complete Inspection" opens the PIN modal (`setPinAction('inspection')`)
-- Change: clicking "Complete Inspection" calls `completeInspection()` directly, using the already-authenticated housekeeper info from `localStorage` (set when they accepted the assignment with PIN)
+- Change the payment section (lines 465-479) to only show for order types that need upfront payment (Room, Beach/Takeaway)
+- Update the validation in `handleSendToKitchen` (line 131) to skip payment check for WalkIn and DineIn
+- Walk-In and Dine-In orders will submit with empty `payment_type` (payment collected later at the register)
 
-**2. Auto-transition to cleaning after inspection**
-- Currently: `completeInspection` updates the DB but the component's `step` variable is derived from `order.status`, and the `order` prop doesn't refresh -- so the screen stays on inspection.
-- Fix: After the DB update succeeds, force a local state change so the UI immediately shows the cleaning step without requiring navigation or page reload. Add a local `currentStep` state that overrides the prop-derived step.
+### 2. Index Page: Permission-Based Navigation Tiles
+**File: `src/pages/Index.tsx`**
 
-**3. Keep PIN only for cleaning completion**
-- The PIN modal and `pinAction` state will only be used for the cleaning completion step (no change needed here).
+Currently, every logged-in staff member sees: Staff Order, Kitchen, Bar, Housekeeping, Employee Portal. This needs to be filtered using the existing `session.permissions` array.
 
-### Technical Details
+New visibility rules using the existing permission system:
+- **Staff Order**: Show if admin OR has `orders:view` or `orders:edit` permission
+- **Kitchen**: Show if admin OR has `kitchen:view` or `kitchen:edit` permission (new permission key)
+- **Bar**: Show if admin OR has `bar:view` or `bar:edit` permission (new permission key)
+- **Housekeeping**: Show if admin OR has `housekeeping:view` or `housekeeping:edit` permission (new permission key)
+- **Employee Portal**: Always visible (own timeclock/schedule)
+- **Admin**: Only if `isAdmin` (unchanged)
+- **Manager**: Only if non-admin with permissions (unchanged)
 
-1. Add `const [currentStep, setCurrentStep] = useState(step)` to track the active step locally
-2. Change the "Complete Inspection" button's `onClick` from `() => setPinAction('inspection')` to call `completeInspection()` directly
-3. Modify `completeInspection()` to:
-   - Remove the `confirmedBy` parameter
-   - Use `localStorage.getItem('emp_name')` and `localStorage.getItem('emp_id')` for `inspection_by_name` (the housekeeper already authenticated via PIN when accepting)
-   - After successful DB update, call `setCurrentStep('cleaning')` to immediately show the cleaning screen
-4. Update the step variable usage throughout the component to use `currentStep` instead of the prop-derived `step`
-5. Remove the `pinAction === 'inspection'` branch from `handlePinConfirm`
-6. Update PIN modal title/description to only reference cleaning completion
+This uses the existing `hasAccess()` helper from `src/lib/permissions.ts` -- no database changes needed, just new permission keys assigned via the existing StaffAccessManager.
+
+### 3. StaffAccessManager: Add Kitchen/Bar/Housekeeping Permission Keys
+**File: `src/components/admin/StaffAccessManager.tsx`**
+
+Add new entries to `GRANULAR_PERMISSIONS`:
+- `{ key: 'kitchen', label: 'Kitchen Display' }`
+- `{ key: 'bar', label: 'Bar Display' }`
+- `{ key: 'housekeeping', label: 'Housekeeping' }` (already exists? checking... no, current list has `setup` for housekeeping config but not a `housekeeping` key)
+
+These are added to the existing permission cycling UI (Off/View/Edit). No database migration needed -- the `employee_permissions` table already stores arbitrary permission strings.
+
+### 4. DepartmentOrdersView: Permission-Based Action Buttons
+**File: `src/components/DepartmentOrdersView.tsx`**
+
+Read the session permissions from `sessionStorage` and use them to control:
+- **"Start Preparing" button**: Only show if user has `kitchen:edit` (for kitchen) or `bar:edit` (for bar) or is admin
+- **"Mark Ready" button**: Same as above
+- Staff with `kitchen:view` or `bar:view` can SEE orders but NOT act on them (read-only display)
+
+### 5. RequireAuth Enhancement
+**File: `src/components/RequireAuth.tsx`** -- no changes needed. Route-level auth stays the same (any logged-in staff can access the route). The visibility control happens at the tile level on the Index page and button level in the department views.
+
+---
+
+## Technical Details
+
+### Permission Keys (existing + new)
+
+Existing keys already in `GRANULAR_PERMISSIONS`:
+`orders`, `menu`, `reports`, `inventory`, `payroll`, `resort_ops`, `rooms`, `schedules`, `setup`, `timesheet`
+
+New keys to add:
+`kitchen`, `bar`, `housekeeping`
+
+### No Database Migration Needed
+The `employee_permissions` table stores `permission` as free-text. New keys like `kitchen:edit` are just new string values inserted via the existing StaffAccessManager UI.
+
+### File Changes Summary
+
+| File | Change |
+|------|--------|
+| `src/components/CartDrawer.tsx` | Hide payment selector and skip validation for WalkIn/DineIn |
+| `src/pages/Index.tsx` | Filter navigation tiles based on `session.permissions` using `hasAccess()` |
+| `src/components/admin/StaffAccessManager.tsx` | Add `kitchen`, `bar`, `housekeeping` to `GRANULAR_PERMISSIONS` |
+| `src/components/DepartmentOrdersView.tsx` | Read session permissions; hide action buttons for view-only users |
 
