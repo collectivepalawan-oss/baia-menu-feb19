@@ -1,8 +1,35 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { type PermissionLevel, getPermissionLevel } from '@/lib/permissions';
+
+const ROLE_TEMPLATES: Record<string, string[]> = {
+  admin: ['admin'],
+  gm: ['admin'],
+  receptionist: ['reception:edit', 'experiences:edit', 'rooms:edit', 'housekeeping:view', 'orders:view', 'documents:view'],
+  cook: ['kitchen:edit', 'orders:view', 'inventory:view'],
+  chef: ['kitchen:edit', 'menu:edit', 'orders:edit', 'inventory:edit'],
+  bartender: ['bar:edit', 'orders:view', 'inventory:view'],
+  tours: ['experiences:edit', 'orders:view'],
+  transportation: ['experiences:view', 'tasks:edit'],
+  maintenance: ['resort_ops:edit', 'tasks:edit', 'housekeeping:view'],
+  landscaping: ['tasks:edit', 'resort_ops:view'],
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: 'Admin',
+  gm: 'GM',
+  receptionist: 'Receptionist',
+  cook: 'Cook',
+  chef: 'Chef',
+  bartender: 'Bartender / Barista',
+  tours: 'Tours',
+  transportation: 'Transportation',
+  maintenance: 'Maintenance',
+  landscaping: 'Landscaping',
+};
 
 const GRANULAR_PERMISSIONS = [
   { key: 'orders', label: 'Orders' },
@@ -64,6 +91,26 @@ const StaffAccessManager = () => {
 
   const isAdmin = (empId: string) =>
     getEmpPermissions(empId).includes('admin');
+
+  /** Apply a role template: wipe all permissions, insert template ones */
+  const applyRole = async (empId: string, roleKey: string) => {
+    const template = ROLE_TEMPLATES[roleKey];
+    if (!template) return;
+
+    // Delete all existing permissions for this employee
+    const empPerms = permissions.filter(p => p.employee_id === empId);
+    for (const p of empPerms) {
+      await (supabase.from('employee_permissions' as any) as any).delete().eq('id', p.id);
+    }
+
+    // Insert new permissions from template
+    for (const perm of template) {
+      await (supabase.from('employee_permissions' as any) as any).insert({ employee_id: empId, permission: perm });
+    }
+
+    qc.invalidateQueries({ queryKey: ['employee-permissions'] });
+    toast.success(`Applied ${ROLE_LABELS[roleKey]} role`);
+  };
 
   const toggleAdmin = async (empId: string) => {
     const existing = permissions.find(p => p.employee_id === empId && p.permission === 'admin');
@@ -138,6 +185,20 @@ const StaffAccessManager = () => {
               <p className="font-display text-sm text-foreground tracking-wider mb-2">
                 {emp.display_name || emp.name}
               </p>
+
+              {/* Role template selector */}
+              <div className="mb-2">
+                <Select onValueChange={(val) => applyRole(emp.id, val)}>
+                  <SelectTrigger className="h-8 text-xs font-display tracking-wider">
+                    <SelectValue placeholder="Apply role template…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(ROLE_LABELS).map(([key, label]) => (
+                      <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* Admin toggle */}
               <label className="flex items-center gap-2 cursor-pointer mb-1">
