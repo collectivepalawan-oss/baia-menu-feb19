@@ -1,54 +1,37 @@
 
 
-# Fix: Stop View-Only Employees from Accessing Manager Dashboard
+## Plan: Expand Receptionist Powers in Reception Dashboard
 
-## Problem
-Susan has `rooms:view`, `housekeeping:view`, `schedules:view`, `tasks:view` — all view-only. But the Employee Portal shows a "Dashboard" button because the condition is simply `empPermissions.length > 0`. Clicking it navigates Susan to `/manager`, which feels wrong and confusing even though mutation buttons are hidden.
+### Problem
+Currently, check-in and check-out are locked behind `reception:manage` level. Receptionists with `reception:edit` can only sell rooms. There's no billing access, no ability to send housekeepers, and room info is limited.
 
-The schedule and task views Susan needs are already available as tabs within the Employee Portal itself. She should never be sent to the manager dashboard.
+### Changes to `src/pages/ReceptionPage.tsx`
 
-## Root Cause
-In `src/pages/EmployeePortal.tsx` line 277:
-```
-if (empPermissions.length > 0) {
-  tabs.push({ key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard });
-}
-```
-This shows Dashboard for ANY employee with ANY permission, including view-only ones.
+**1. Downgrade check-in/check-out from `canDoManage` to `canDoEdit`**
+- Line 444: Change checkout button guard from `canDoManage` to `canDoEdit`
+- Line 475: Change check-in button guard from `canDoManage` to `canDoEdit`
+- Receptionists with `edit` permission can now check guests in and out
 
-## Solution
+**2. Add "Add Payment" button on each occupied room card**
+- Import and render `AddPaymentModal` from existing component
+- Show a payment button on occupied room cards for `canDoEdit` users
+- Reuses the existing billing modal already built for the Rooms dashboard
 
-### 1. Only show Dashboard tab for employees with edit-level permissions
-**File: `src/pages/EmployeePortal.tsx`**
+**3. Add "Send to Clean" button on occupied rooms (after checkout or manually)**
+- Add a button on rooms that are `occupied` or need manual housekeeping trigger
+- On click: update unit status to `to_clean`, create a `housekeeping_orders` row (idempotent check), invalidate queries
+- Gated behind `canDoEdit`
 
-Change the Dashboard tab condition from `empPermissions.length > 0` to check if the employee has at least one **edit-level** permission for a manager-relevant section (orders, reports, inventory, payroll, resort_ops, rooms, schedules, setup, timesheet).
+**4. Add "View Bill" button on each occupied room**
+- Show a collapsible or modal view of `room_transactions` for any occupied unit
+- Uses existing `useRoomTransactions` hook
+- Available to all permission levels (including `view`)
 
-View-only permissions like `rooms:view` or `schedules:view` should NOT trigger the Dashboard button, since those views are already available within the Employee Portal tabs.
+**5. Permission level summary after changes**
+- `view`: See all room info, guests, tours, requests, bills (read-only)
+- `edit`: Check-in, check-out, sell rooms (set price), add payments, send housekeepers
+- `manage`: Override rates on existing bookings (future use)
 
-Logic:
-```
-const MANAGER_SECTIONS = ['orders', 'reports', 'inventory', 'payroll', 
-  'resort_ops', 'rooms', 'schedules', 'setup', 'timesheet'];
-const hasManagerAccess = empPermissions.includes('admin') || 
-  MANAGER_SECTIONS.some(s => canEdit(empPermissions, s));
+### No database changes needed
+All tables and RLS policies already exist.
 
-if (hasManagerAccess) {
-  tabs.push({ key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard });
-}
-```
-
-### 2. Add permission check to /manager route
-**File: `src/App.tsx`**
-
-Currently `/manager` has no specific permission requirement, so any authenticated employee can navigate there directly. Add a guard — but since manager access requires any one of several edit-level permissions (not a single key), the simplest approach is to let `ManagerPage` handle the redirect (it already shows "No dashboard access" for employees with zero permissions). No route change needed since the EmployeePortal fix prevents normal access.
-
-## Files to Change
-
-| File | Change |
-|------|--------|
-| `src/pages/EmployeePortal.tsx` | Replace `empPermissions.length > 0` with edit-level permission check for Dashboard tab |
-
-## Result
-- Susan (all view-only): sees Clock, Schedule, Tasks, Settings in Employee Portal. No Dashboard button. Cannot reach /manager.
-- James (admin): sees all tabs including Dashboard, which goes to /admin.
-- Staff with edit permissions: sees Dashboard, which goes to /manager with appropriate tabs.
