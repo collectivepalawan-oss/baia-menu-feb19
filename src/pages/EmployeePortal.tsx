@@ -274,7 +274,9 @@ const EmployeePortal = () => {
               tabs.push({ key: 'pay', label: 'Pay', icon: Banknote });
             }
             tabs.push({ key: 'settings', label: 'Settings', icon: Settings });
-            if (empPermissions.length > 0) {
+            const MANAGER_SECTIONS = ['orders', 'reports', 'inventory', 'payroll', 'resort_ops', 'rooms', 'schedules', 'setup', 'timesheet'];
+            const hasManagerAccess = isAdmin || MANAGER_SECTIONS.some(s => canEdit(empPermissions, s));
+            if (hasManagerAccess) {
               tabs.push({ key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard });
             }
             return tabs;
