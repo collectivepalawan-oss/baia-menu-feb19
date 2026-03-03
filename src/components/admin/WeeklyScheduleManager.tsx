@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { format, startOfWeek, addDays, isToday, isBefore } from 'date-fns';
-import { Plus, Pencil, Trash2, Calendar as CalIcon, Clock, Copy, UserPlus, ChevronLeft, ChevronRight, ClipboardList } from 'lucide-react';
+import { Plus, Pencil, Trash2, Calendar as CalIcon, Clock, Copy, UserPlus, ChevronLeft, ChevronRight, ClipboardList, MapPin, Sparkles } from 'lucide-react';
 
 type Employee = { id: string; name: string };
 type Task = {
@@ -27,9 +27,11 @@ type Schedule = {
   time_in: string; time_out: string; created_at: string; updated_at: string;
 };
 
-const TIMELINE_START = 5; // 5 AM
-const TIMELINE_END = 22; // 10 PM
-const TIMELINE_HOURS = TIMELINE_END - TIMELINE_START; // 17 hours
+const from = (table: string) => supabase.from(table as any);
+
+const TIMELINE_START = 5;
+const TIMELINE_END = 22;
+const TIMELINE_HOURS = TIMELINE_END - TIMELINE_START;
 
 const HOURS = Array.from({ length: TIMELINE_HOURS + 1 }, (_, i) => TIMELINE_START + i);
 
@@ -142,11 +144,43 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
     },
   });
 
+  // Tours for the visible week
+  const { data: weekTours = [] } = useQuery({
+    queryKey: ['week-tours', startStr],
+    queryFn: async () => {
+      const { data } = await from('guest_tours').select('*')
+        .gte('tour_date', startStr)
+        .lte('tour_date', endStr)
+        .neq('status', 'cancelled');
+      return (data || []) as any[];
+    },
+  });
+
+  // Housekeeping orders for the visible week (assigned)
+  const { data: weekHkOrders = [] } = useQuery({
+    queryKey: ['week-hk-orders', startStr],
+    queryFn: async () => {
+      const { data } = await from('housekeeping_orders').select('*')
+        .not('assigned_to', 'is', null)
+        .gte('created_at', startStr + 'T00:00:00')
+        .lte('created_at', endStr + 'T23:59:59');
+      return (data || []) as any[];
+    },
+  });
+
   const getTasksForEmpDate = (empId: string, dateStr: string) =>
     weekTasks.filter(t => t.employee_id === empId && t.due_date?.startsWith(dateStr));
 
   const getUndatedTasksForEmp = (empId: string) =>
     undatedTasks.filter(t => t.employee_id === empId);
+
+  // Tours for a specific date (not employee-specific, shown on all rows or as summary)
+  const getToursForDate = (dateStr: string) =>
+    weekTours.filter((t: any) => t.tour_date === dateStr);
+
+  // Housekeeping orders assigned to an employee on a date
+  const getHkForEmpDate = (empId: string, dateStr: string) =>
+    weekHkOrders.filter((o: any) => o.assigned_to === empId && o.created_at.startsWith(dateStr));
 
   const getTaskColor = (task: Task) => {
     if (task.status === 'completed') return 'bg-emerald-500';
@@ -279,7 +313,6 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
     setSelectedDayIdx(new Date().getDay());
   };
 
-  // Get shifts for a specific date
   const getDateShifts = (dateStr: string) => schedules.filter(s => s.schedule_date === dateStr);
 
   // Shift Block Component
@@ -336,7 +369,6 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
       </div>
     );
 
-    // Desktop: wrap in context menu
     if (!isMobile) {
       return (
         <ContextMenu>
@@ -367,15 +399,17 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
     const shifts = getDateShifts(dateStr).filter(s => s.employee_id === emp.id);
     const tasks = getTasksForEmpDate(emp.id, dateStr);
     const empUndatedTasks = getUndatedTasksForEmp(emp.id);
-    const taskCount = tasks.length + empUndatedTasks.length;
+    const hkOrders = getHkForEmpDate(emp.id, dateStr);
+    const dayTours = getToursForDate(dateStr);
+    const activityCount = tasks.length + empUndatedTasks.length + hkOrders.length;
     return (
       <div className="border-b border-border last:border-b-0">
         <div className="flex items-stretch">
           <div className={`shrink-0 ${compact ? 'w-16' : 'w-28'} p-1.5 font-body text-xs font-semibold text-foreground border-r border-border flex items-center gap-1`}>
             <span className="truncate">{emp.name}</span>
-            {taskCount > 0 && (
+            {activityCount > 0 && (
               <Badge variant="secondary" className="text-[8px] h-4 min-w-[16px] px-1 bg-blue-500/20 text-blue-400 border-none">
-                {taskCount}
+                {activityCount}
               </Badge>
             )}
           </div>
@@ -422,8 +456,8 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
             </div>
           )}
         </div>
-        {/* Undated tasks row */}
-        {empUndatedTasks.length > 0 && (
+        {/* Activity pills: undated tasks + housekeeping + tours */}
+        {(empUndatedTasks.length > 0 || hkOrders.length > 0) && (
           <div className={`flex items-center gap-1 px-2 py-1 bg-secondary/30 border-t border-border/30 ${compact ? 'ml-16' : 'ml-28'}`}>
             <ClipboardList className="h-3 w-3 text-muted-foreground shrink-0" />
             <div className="flex flex-wrap gap-1">
@@ -435,9 +469,35 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
                   {task.title}
                 </button>
               ))}
+              {hkOrders.map((o: any) => (
+                <span key={o.id} className="text-[10px] font-body px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">
+                  <Sparkles className="h-2.5 w-2.5 inline mr-0.5" />{o.unit_name}
+                </span>
+              ))}
             </div>
           </div>
         )}
+      </div>
+    );
+  };
+
+  // Tours summary row for a date
+  const ToursSummaryRow = ({ dateStr, compact = false }: { dateStr: string; compact?: boolean }) => {
+    const tours = getToursForDate(dateStr);
+    if (tours.length === 0) return null;
+    return (
+      <div className="border-b border-border bg-teal-500/5">
+        <div className="flex items-center gap-1 px-2 py-1.5">
+          <MapPin className="h-3 w-3 text-teal-400 shrink-0" />
+          <span className="font-body text-[10px] text-teal-400 font-semibold mr-1">Tours:</span>
+          <div className="flex flex-wrap gap-1">
+            {tours.map((t: any) => (
+              <span key={t.id} className="text-[10px] font-body px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-400">
+                {t.tour_name} · {t.unit_name} {t.pickup_time && `· ${t.pickup_time}`}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
     );
   };
@@ -460,7 +520,7 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
     </div>
   );
 
-  // MOBILE VIEW — stacked day cards with scrollable timeline
+  // MOBILE VIEW
   if (isMobile) {
     return (
       <div className="space-y-3">
@@ -479,7 +539,6 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
               </div>
             )}
           </div>
-          {/* Week nav */}
           <div className="flex items-center gap-1">
             <Button size="sm" variant="outline" className="h-9 w-9 p-0" onClick={() => setWeekStart(addDays(weekStart, -7))}>
               <ChevronLeft className="h-4 w-4" />
@@ -491,7 +550,6 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          {/* Day selector */}
           <div className="flex gap-1 overflow-x-auto scrollbar-hide">
             {weekDates.map((d, i) => {
               const today = isToday(d);
@@ -508,11 +566,11 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
           </div>
         </div>
 
-        {/* Timeline for selected day */}
         <Card className="bg-card border-border">
           <CardContent className="p-0 overflow-x-auto scrollbar-hide">
             <div style={{ minWidth: '600px' }}>
               <TimelineHeader compact />
+              <ToursSummaryRow dateStr={format(weekDates[selectedDayIdx], 'yyyy-MM-dd')} compact />
               {employees.map(emp => (
                 <TimelineRow key={emp.id} emp={emp} dateStr={format(weekDates[selectedDayIdx], 'yyyy-MM-dd')} compact />
               ))}
@@ -523,7 +581,6 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
           </CardContent>
         </Card>
 
-        {/* Mobile context menu sheet */}
         <Sheet open={!!contextSheet} onOpenChange={() => setContextSheet(null)}>
           <SheetContent side="bottom" className="bg-card border-border">
             <SheetHeader>
@@ -545,14 +602,12 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
           </SheetContent>
         </Sheet>
 
-        {/* Shift Modal */}
         <ShiftModal shiftModal={shiftModal} shiftForm={shiftForm} setShiftForm={setShiftForm}
           employees={employees} saveShift={saveShift} addBrokenShift={addBrokenShift}
           onClose={() => setShiftModal(null)} onDuplicate={shiftModal?.mode === 'edit' && shiftModal.schedule ? () => { duplicateShift(shiftModal.schedule!); setShiftModal(null); } : undefined} />
 
         <DeleteConfirm deleteId={deleteId} setDeleteId={setDeleteId} onConfirm={confirmDelete} />
 
-        {/* Task Detail Dialog (mobile) */}
         <Dialog open={!!viewingTask} onOpenChange={() => setViewingTask(null)}>
           <DialogContent className="bg-card border-border max-w-sm">
             <DialogHeader>
@@ -597,13 +652,12 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
     );
   }
 
-  // DESKTOP VIEW — full timeline with day tabs
+  // DESKTOP VIEW
   const selectedDate = weekDates[selectedDayIdx];
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 flex-grow">
           <CalIcon className="h-5 w-5 text-muted-foreground" />
@@ -621,7 +675,6 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
         )}
       </div>
 
-      {/* Week navigation */}
       <div className="flex items-center gap-3">
         <Button size="sm" variant="outline" className="h-9 w-9 p-0" onClick={() => setWeekStart(addDays(weekStart, -7))}>
           <ChevronLeft className="h-4 w-4" />
@@ -637,31 +690,36 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
         </Button>
       </div>
 
-      {/* Day tabs */}
       <div className="flex gap-1">
         {weekDates.map((d, i) => {
           const today = isToday(d);
           const active = selectedDayIdx === i;
           const dayShiftCount = getDateShifts(format(d, 'yyyy-MM-dd')).length;
+          const dayTourCount = getToursForDate(format(d, 'yyyy-MM-dd')).length;
           return (
             <button key={i} onClick={() => setSelectedDayIdx(i)}
               className={`flex-1 flex flex-col items-center px-3 py-2 rounded font-body text-sm transition-colors
                 ${active ? 'bg-accent text-accent-foreground' : today ? 'bg-accent/15 text-accent' : 'bg-secondary text-foreground hover:bg-secondary/80'}`}>
               <span className="text-xs">{format(d, 'EEE')}</span>
               <span className="font-semibold text-base">{format(d, 'd')}</span>
-              {dayShiftCount > 0 && (
-                <span className={`text-[10px] ${active ? 'text-accent-foreground/70' : 'text-muted-foreground'}`}>{dayShiftCount} shifts</span>
-              )}
+              <div className="flex gap-1">
+                {dayShiftCount > 0 && (
+                  <span className={`text-[10px] ${active ? 'text-accent-foreground/70' : 'text-muted-foreground'}`}>{dayShiftCount} shifts</span>
+                )}
+                {dayTourCount > 0 && (
+                  <span className="text-[10px] text-teal-400">{dayTourCount} 🏝️</span>
+                )}
+              </div>
             </button>
           );
         })}
       </div>
 
-      {/* Timeline Grid */}
       <Card className="bg-card border-border">
         <CardContent className="p-0 overflow-x-auto">
           <div style={{ minWidth: '900px' }}>
             <TimelineHeader />
+            <ToursSummaryRow dateStr={selectedDateStr} />
             {employees.map(emp => (
               <TimelineRow key={emp.id} emp={emp} dateStr={selectedDateStr} />
             ))}
@@ -672,14 +730,12 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
         </CardContent>
       </Card>
 
-      {/* Shift Modal */}
       <ShiftModal shiftModal={shiftModal} shiftForm={shiftForm} setShiftForm={setShiftForm}
         employees={employees} saveShift={saveShift} addBrokenShift={addBrokenShift}
         onClose={() => setShiftModal(null)} onDuplicate={shiftModal?.mode === 'edit' && shiftModal.schedule ? () => { duplicateShift(shiftModal.schedule!); setShiftModal(null); } : undefined} />
 
       <DeleteConfirm deleteId={deleteId} setDeleteId={setDeleteId} onConfirm={confirmDelete} />
 
-      {/* Task Detail Dialog */}
       <Dialog open={!!viewingTask} onOpenChange={() => setViewingTask(null)}>
         <DialogContent className="bg-card border-border max-w-sm">
           <DialogHeader>
@@ -746,72 +802,64 @@ const ShiftModal = ({ shiftModal, shiftForm, setShiftForm, employees, saveShift,
         </div>
         <div>
           <Label className="font-body text-xs text-muted-foreground">Date</Label>
-          <Input type="date" value={shiftForm.schedule_date} onChange={e => setShiftForm((p: any) => ({ ...p, schedule_date: e.target.value }))}
-            className="bg-secondary border-border text-foreground font-body text-xs h-9" />
+          <Input type="date" value={shiftForm.schedule_date}
+            onChange={e => setShiftForm((p: any) => ({ ...p, schedule_date: e.target.value }))}
+            className="bg-secondary border-border text-foreground font-body" />
+        </div>
+        <div className="flex gap-2">
+          {PRESETS.map(p => (
+            <Button key={p.label} size="sm" variant="outline" className="flex-1 font-body text-xs"
+              onClick={() => setShiftForm((prev: any) => ({ ...prev, time_in: p.time_in, time_out: p.time_out }))}>
+              {p.label}
+            </Button>
+          ))}
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
             <Label className="font-body text-xs text-muted-foreground">Time In</Label>
-            <Input type="time" value={shiftForm.time_in} onChange={e => setShiftForm((p: any) => ({ ...p, time_in: e.target.value }))}
-              className="bg-secondary border-border text-foreground font-body text-xs h-9" />
+            <Input type="time" value={shiftForm.time_in}
+              onChange={e => setShiftForm((p: any) => ({ ...p, time_in: e.target.value }))}
+              className="bg-secondary border-border text-foreground font-body" />
           </div>
           <div>
             <Label className="font-body text-xs text-muted-foreground">Time Out</Label>
-            <Input type="time" value={shiftForm.time_out} onChange={e => setShiftForm((p: any) => ({ ...p, time_out: e.target.value }))}
-              className="bg-secondary border-border text-foreground font-body text-xs h-9" />
+            <Input type="time" value={shiftForm.time_out}
+              onChange={e => setShiftForm((p: any) => ({ ...p, time_out: e.target.value }))}
+              className="bg-secondary border-border text-foreground font-body" />
           </div>
         </div>
-
-        {/* Shift type label (does NOT change times) */}
-        <div>
-          <Label className="font-body text-xs text-muted-foreground mb-1 block">Shift Type</Label>
-          <div className="flex flex-wrap gap-1">
-            {PRESETS.map(p => {
-              const currentType = inferShiftType(shiftForm.time_in, shiftForm.time_out);
-              const isActive = currentType === p.label;
-              return (
-                <Button key={p.label} size="sm"
-                  variant={isActive ? 'default' : 'outline'}
-                  className="font-display text-[10px] h-8"
-                  onClick={() => setShiftForm((f: any) => ({ ...f, time_in: p.time_in, time_out: p.time_out }))}>
-                  {p.label}
-                </Button>
-              );
-            })}
-            <Button size="sm" variant="outline" className="font-display text-[10px] h-8" onClick={addBrokenShift}>
-              Broken Shift
-            </Button>
-          </div>
-          <p className="font-body text-[10px] text-muted-foreground mt-1">Selecting a type will set preset times. Adjust times manually after if needed.</p>
-        </div>
-
-        <Button onClick={saveShift} className="w-full font-display tracking-wider">
-          {shiftModal?.mode === 'edit' ? 'Update Shift' : 'Add Shift'}
+      </div>
+      <div className="flex gap-2 pt-2">
+        <Button variant="outline" className="flex-1 font-display text-xs" onClick={onClose}>Cancel</Button>
+        <Button variant="outline" className="font-display text-xs" onClick={addBrokenShift}>
+          <Clock className="h-3.5 w-3.5 mr-1" /> Broken
         </Button>
-
         {onDuplicate && (
-          <Button variant="outline" onClick={onDuplicate} className="w-full font-body text-xs">
-            <Copy className="h-3.5 w-3.5 mr-1.5" /> Duplicate to Next Day
+          <Button variant="outline" className="font-display text-xs" onClick={onDuplicate}>
+            <Copy className="h-3.5 w-3.5 mr-1" /> Dup
           </Button>
         )}
+        <Button className="flex-1 font-display text-xs" onClick={saveShift}>Save</Button>
       </div>
     </DialogContent>
   </Dialog>
 );
 
-// Delete Confirmation Dialog
-const DeleteConfirm = ({ deleteId, setDeleteId, onConfirm }: {
-  deleteId: string | null; setDeleteId: (id: string | null) => void; onConfirm: () => void;
-}) => (
+// Delete Confirmation
+const DeleteConfirm = ({ deleteId, setDeleteId, onConfirm }: { deleteId: string | null; setDeleteId: (v: string | null) => void; onConfirm: () => void }) => (
   <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
     <AlertDialogContent className="bg-card border-border">
       <AlertDialogHeader>
         <AlertDialogTitle className="font-display text-foreground">Delete Shift?</AlertDialogTitle>
-        <AlertDialogDescription className="font-body text-muted-foreground">This action cannot be undone.</AlertDialogDescription>
+        <AlertDialogDescription className="font-body text-muted-foreground">
+          This action cannot be undone.
+        </AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
-        <AlertDialogCancel className="font-display">Cancel</AlertDialogCancel>
-        <AlertDialogAction onClick={onConfirm} className="bg-destructive text-destructive-foreground font-display">Delete</AlertDialogAction>
+        <AlertDialogCancel className="font-display text-xs">Cancel</AlertDialogCancel>
+        <AlertDialogAction onClick={onConfirm} className="font-display text-xs bg-destructive text-destructive-foreground">
+          Delete
+        </AlertDialogAction>
       </AlertDialogFooter>
     </AlertDialogContent>
   </AlertDialog>

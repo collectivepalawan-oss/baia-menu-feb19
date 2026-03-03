@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, LogIn, LogOut, DollarSign, BedDouble, MapPin, Car, Bike, Palmtree, UtensilsCrossed, ClipboardList, Sparkles, Receipt, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, LogIn, LogOut, DollarSign, BedDouble, MapPin, Car, Bike, Palmtree, UtensilsCrossed, ClipboardList, Sparkles, Receipt, ChevronDown, ChevronUp, CheckCircle } from 'lucide-react';
 import AddPaymentModal from '@/components/rooms/AddPaymentModal';
+import HousekeeperPickerModal from '@/components/rooms/HousekeeperPickerModal';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { usePaymentMethods } from '@/hooks/usePaymentMethods';
@@ -49,6 +50,14 @@ const InlineBill = ({ unitId }: { unitId: string }) => {
   );
 };
 
+/** Compute balance for a unit from transactions */
+const useUnitBalance = (unitId: string | null) => {
+  const { data: txns = [] } = useRoomTransactions(unitId);
+  const totalC = txns.filter(t => t.total_amount > 0).reduce((s, t) => s + t.total_amount, 0);
+  const totalP = Math.abs(txns.filter(t => t.total_amount < 0).reduce((s, t) => s + t.total_amount, 0));
+  return totalC - totalP;
+};
+
 const SESSION_KEY = 'staff_home_session';
 const getSession = () => {
   try {
@@ -69,6 +78,7 @@ const ReceptionPage = () => {
   const isAdmin = perms.includes('admin');
   const canDoEdit = isAdmin || canEdit(perms, 'reception');
   const canDoManage = isAdmin || canManage(perms, 'reception');
+  const staffName = session?.name || localStorage.getItem('emp_name') || 'Staff';
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -98,6 +108,10 @@ const ReceptionPage = () => {
   const [paymentBooking, setPaymentBooking] = useState<any>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
 
+  // Housekeeper picker state
+  const [hkPickerOpen, setHkPickerOpen] = useState(false);
+  const [hkTargetUnit, setHkTargetUnit] = useState<any>(null);
+
   // View Bill state
   const [billUnitId, setBillUnitId] = useState<string | null>(null);
 
@@ -106,6 +120,9 @@ const ReceptionPage = () => {
 
   const { data: paymentMethods = [] } = usePaymentMethods();
   const activePM = paymentMethods.filter(m => m.is_active && m.name !== 'Charge to Room');
+
+  // Compute balance for payment modal
+  const paymentBalance = useUnitBalance(paymentUnit?.id || null);
 
   // Units
   const { data: units = [] } = useQuery({
@@ -240,6 +257,48 @@ const ReceptionPage = () => {
     }
   };
 
+  // ── TOUR/REQUEST ACTION HANDLERS ──
+  const updateTourStatus = async (id: string, status: string) => {
+    if (!canDoEdit) { toast.error('View-only access'); return; }
+    await from('guest_tours').update({ status, confirmed_by: staffName }).eq('id', id);
+    qc.invalidateQueries({ queryKey: ['reception-tours-today'] });
+    toast.success(`Tour ${status}`);
+  };
+
+  const confirmTourBooking = async (b: any) => {
+    if (!canDoEdit) { toast.error('View-only access'); return; }
+    await (supabase.from('tour_bookings') as any).update({
+      status: 'confirmed',
+      confirmed_by: staffName,
+    }).eq('id', b.id);
+    qc.invalidateQueries({ queryKey: ['reception-tour-bookings'] });
+    toast.success('Tour booking confirmed');
+  };
+
+  const cancelTourBooking = async (id: string) => {
+    if (!canDoEdit) { toast.error('View-only access'); return; }
+    await (supabase.from('tour_bookings') as any).update({
+      status: 'cancelled',
+      confirmed_by: staffName,
+    }).eq('id', id);
+    qc.invalidateQueries({ queryKey: ['reception-tour-bookings'] });
+    toast.success('Tour booking cancelled');
+  };
+
+  const completeTourBooking = async (id: string) => {
+    if (!canDoEdit) { toast.error('View-only access'); return; }
+    await (supabase.from('tour_bookings') as any).update({ status: 'completed' }).eq('id', id);
+    qc.invalidateQueries({ queryKey: ['reception-tour-bookings'] });
+    toast.success('Tour completed');
+  };
+
+  const updateRequestStatus = async (id: string, status: string) => {
+    if (!canDoEdit) { toast.error('View-only access'); return; }
+    await from('guest_requests').update({ status, confirmed_by: staffName }).eq('id', id);
+    qc.invalidateQueries({ queryKey: ['reception-guest-requests'] });
+    toast.success(`Request ${status}`);
+  };
+
   // ── CHECK-IN (manage only) ──
   const handleReservationCheckIn = async () => {
     if (!checkInBooking) return;
@@ -341,8 +400,13 @@ const ReceptionPage = () => {
     }
   };
 
-  // ── SEND TO CLEAN ──
-  const handleSendToClean = async (unit: any) => {
+  // ── SEND TO CLEAN (with housekeeper picker) ──
+  const handleSendToCleanWithPicker = (unit: any) => {
+    setHkTargetUnit(unit);
+    setHkPickerOpen(true);
+  };
+
+  const handleSendToClean = async (unit: any, assignedTo?: string, assignedName?: string) => {
     setSendingClean(unit.id);
     try {
       await supabase.from('units').update({ status: 'to_clean' } as any).eq('id', unit.id);
@@ -352,12 +416,15 @@ const ReceptionPage = () => {
           unit_name: unit.name,
           room_type_id: (unit as any).room_type_id || null,
           status: 'pending_inspection',
+          assigned_to: assignedTo || null,
         });
+      } else if (assignedTo) {
+        await from('housekeeping_orders').update({ assigned_to: assignedTo }).eq('id', existing.id);
       }
-      await logAudit('updated', 'units', unit.id, `Sent ${unit.name} to clean`);
+      await logAudit('updated', 'units', unit.id, `Sent ${unit.name} to clean${assignedName ? ` (assigned: ${assignedName})` : ''}`);
       qc.invalidateQueries({ queryKey: ['rooms-units'] });
       qc.invalidateQueries({ queryKey: ['housekeeping-orders'] });
-      toast.success(`${unit.name} sent to housekeeping`);
+      toast.success(`${unit.name} assigned to ${assignedName || 'housekeeping'}`);
     } catch {
       toast.error('Failed to send to clean');
     } finally {
@@ -383,7 +450,7 @@ const ReceptionPage = () => {
           service_charge_amount: 0,
           total_amount: -finalAmount,
           payment_method: checkOutPayment,
-          staff_name: localStorage.getItem('emp_name') || 'Staff',
+          staff_name: staffName,
           notes: 'Final checkout payment',
         });
       }
@@ -506,7 +573,6 @@ const ReceptionPage = () => {
                     )}
                   </div>
                 </div>
-                {/* Manage-level: check-out button for departing rooms */}
                 {canDoEdit && isDepartingToday && (
                   <Button size="sm" variant="destructive" onClick={() => {
                     setCheckOutBooking(booking);
@@ -518,7 +584,6 @@ const ReceptionPage = () => {
                     <LogOut className="w-4 h-4 mr-1" /> Check Out
                   </Button>
                 )}
-                {/* Action buttons for occupied rooms */}
                 <div className="flex flex-wrap gap-1.5">
                   {canDoEdit && booking && (
                     <Button size="sm" variant="outline" onClick={() => {
@@ -534,14 +599,13 @@ const ReceptionPage = () => {
                     <Receipt className="w-3 h-3 mr-0.5" /> Bill {billUnitId === unit.id ? <ChevronUp className="w-3 h-3 ml-0.5" /> : <ChevronDown className="w-3 h-3 ml-0.5" />}
                   </Button>
                   {canDoEdit && (
-                    <Button size="sm" variant="outline" onClick={() => handleSendToClean(unit)}
+                    <Button size="sm" variant="outline" onClick={() => handleSendToCleanWithPicker(unit)}
                       disabled={sendingClean === unit.id}
                       className="font-display text-[10px] tracking-wider min-h-[32px]">
                       <Sparkles className="w-3 h-3 mr-0.5" /> {sendingClean === unit.id ? '...' : 'Clean'}
                     </Button>
                   )}
                 </div>
-                {/* Inline bill view */}
                 {billUnitId === unit.id && <InlineBill unitId={unit.id} />}
               </div>
             );
@@ -604,12 +668,12 @@ const ReceptionPage = () => {
         </div>
       )}
 
-      {/* ── Tours & Activities Today ── */}
+      {/* ── Tours & Activities Today (with action buttons) ── */}
       {(todayTours.length > 0 || tourBookings.length > 0) && (
         <div className="mb-6 space-y-2">
           <h2 className="font-display text-xs tracking-wider text-muted-foreground uppercase">🏝️ Tours & Activities ({todayTours.length + pendingTourBookings.length})</h2>
           {todayTours.map((tour: any) => (
-            <div key={tour.id} className="border border-border rounded-lg p-3">
+            <div key={tour.id} className="border border-border rounded-lg p-3 space-y-2">
               <div className="flex justify-between items-start">
                 <div>
                   <div className="flex items-center gap-2">
@@ -623,10 +687,22 @@ const ReceptionPage = () => {
                 </div>
                 <Badge className={`font-body text-xs ${statusColor(tour.status)}`}>{tour.status}</Badge>
               </div>
+              {canDoEdit && tour.status !== 'completed' && tour.status !== 'cancelled' && (
+                <div className="flex gap-2">
+                  {tour.status === 'booked' && (
+                    <Button size="sm" variant="outline" onClick={() => updateTourStatus(tour.id, 'confirmed')}
+                      className="font-display text-xs tracking-wider min-h-[36px]">Confirm</Button>
+                  )}
+                  <Button size="sm" onClick={() => updateTourStatus(tour.id, 'completed')}
+                    className="font-display text-xs tracking-wider min-h-[36px]">
+                    <CheckCircle className="w-3.5 h-3.5 mr-1" /> Complete
+                  </Button>
+                </div>
+              )}
             </div>
           ))}
           {pendingTourBookings.map((b: any) => (
-            <div key={b.id} className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-3">
+            <div key={b.id} className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-3 space-y-2">
               <div className="flex justify-between items-start">
                 <div>
                   <div className="flex items-center gap-2">
@@ -640,19 +716,50 @@ const ReceptionPage = () => {
                 </div>
                 <Badge className={`font-body text-xs ${statusColor('pending')}`}>pending</Badge>
               </div>
+              {canDoEdit && (
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => confirmTourBooking(b)}
+                    className="font-display text-xs tracking-wider min-h-[36px]">Confirm</Button>
+                  <Button size="sm" variant="destructive" onClick={() => cancelTourBooking(b.id)}
+                    className="font-display text-xs tracking-wider min-h-[36px]">Cancel</Button>
+                </div>
+              )}
+            </div>
+          ))}
+          {/* Show confirmed tour bookings with Complete button */}
+          {tourBookings.filter((b: any) => b.status === 'confirmed').map((b: any) => (
+            <div key={b.id} className="border border-emerald-500/30 bg-emerald-500/5 rounded-lg p-3 space-y-2">
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Palmtree className="w-3.5 h-3.5 text-emerald-400" />
+                    <p className="font-display text-sm text-foreground tracking-wider">{b.tour_name}</p>
+                  </div>
+                  <p className="font-body text-xs text-muted-foreground mt-1">
+                    {b.tour_date && format(new Date(b.tour_date + 'T00:00:00'), 'MMM d')} · {b.guest_name} · {b.pax} pax
+                  </p>
+                </div>
+                <Badge className={`font-body text-xs ${statusColor('confirmed')}`}>confirmed</Badge>
+              </div>
+              {canDoEdit && (
+                <Button size="sm" onClick={() => completeTourBooking(b.id)}
+                  className="font-display text-xs tracking-wider min-h-[36px]">
+                  <CheckCircle className="w-3.5 h-3.5 mr-1" /> Complete
+                </Button>
+              )}
             </div>
           ))}
         </div>
       )}
 
-      {/* ── Guest Requests ── */}
+      {/* ── Guest Requests (with action buttons) ── */}
       {guestRequests.length > 0 && (
         <div className="mb-6 space-y-2">
           <h2 className="font-display text-xs tracking-wider text-muted-foreground uppercase">
             📋 Guest Requests ({pendingRequests.length} pending)
           </h2>
           {guestRequests.slice(0, 10).map((req: any) => (
-            <div key={req.id} className={`border rounded-lg p-3 ${req.status === 'pending' ? 'border-amber-500/30 bg-amber-500/5' : 'border-border'}`}>
+            <div key={req.id} className={`border rounded-lg p-3 space-y-2 ${req.status === 'pending' ? 'border-amber-500/30 bg-amber-500/5' : 'border-border'}`}>
               <div className="flex justify-between items-start">
                 <div>
                   <p className="font-display text-sm text-foreground tracking-wider">{req.request_type}</p>
@@ -661,6 +768,14 @@ const ReceptionPage = () => {
                 </div>
                 <Badge className={`font-body text-xs ${statusColor(req.status)}`}>{req.status}</Badge>
               </div>
+              {canDoEdit && req.status === 'pending' && (
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => updateRequestStatus(req.id, 'confirmed')}
+                    className="font-display text-xs tracking-wider min-h-[36px]">Confirm</Button>
+                  <Button size="sm" variant="destructive" onClick={() => updateRequestStatus(req.id, 'cancelled')}
+                    className="font-display text-xs tracking-wider min-h-[36px]">Cancel</Button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -915,9 +1030,20 @@ const ReceptionPage = () => {
           unitName={paymentUnit.name}
           guestName={paymentBooking?.resort_ops_guests?.full_name || null}
           bookingId={paymentBooking?.id || null}
-          currentBalance={0}
+          currentBalance={paymentBalance}
         />
       )}
+
+      {/* ══════ HOUSEKEEPER PICKER MODAL ══════ */}
+      <HousekeeperPickerModal
+        open={hkPickerOpen}
+        onOpenChange={setHkPickerOpen}
+        onSelect={(empId, empName) => {
+          if (hkTargetUnit) {
+            handleSendToClean(hkTargetUnit, empId, empName);
+          }
+        }}
+      />
     </div>
   );
 };
