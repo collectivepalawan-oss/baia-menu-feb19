@@ -1,83 +1,50 @@
 
-# Guest Portal: Staff Documentation and Improved Scooter/Tour Booking
+
+# Fix Housekeeping Flow: Reduce PIN Prompts and Auto-Redirect
 
 ## Problem
-1. All guest portal bookings (tours, transport, rentals, requests, reviews) currently record `staff_name: 'Guest Portal'` -- there is no staff accountability or confirmation step.
-2. Scooter rentals are a simple one-tap book with no duration/date selection.
-3. Tour bookings lack pickup time and notes fields.
+1. After submitting inspection, the screen doesn't visually transition to cleaning -- the housekeeper has to leave and come back.
+2. Too many PIN prompts (4 total). Only 2 are needed for accountability.
 
-## Plan
+## Current vs New Flow
 
-### 1. Add `confirmed_by` column to relevant tables
-Add a `confirmed_by` (text) column to `tour_bookings` and `guest_requests` tables so every portal action can be traced to a staff member. The `room_transactions` table already has `staff_name`.
-
-Migration:
-```sql
-ALTER TABLE tour_bookings ADD COLUMN confirmed_by text NOT NULL DEFAULT '';
-ALTER TABLE tour_bookings ADD COLUMN notes text NOT NULL DEFAULT '';
-ALTER TABLE guest_requests ADD COLUMN confirmed_by text NOT NULL DEFAULT '';
-ALTER TABLE guest_reviews ADD COLUMN confirmed_by text NOT NULL DEFAULT '';
+```text
+CURRENT (4 PINs):                    NEW (2 PINs):
+Accept Assignment [PIN]              Accept Assignment [PIN]
+    |                                    |
+Do Inspection                        Do Inspection
+    |                                    |
+Submit Inspection [PIN] -- REMOVE    Submit Inspection [NO PIN]
+    |                                    |
+Screen stuck -- BUG                  Auto-transition to Cleaning
+    |                                    |
+Complete Cleaning [PIN]              Complete Cleaning [PIN]
 ```
 
-### 2. Change portal bookings to "pending" requests (not instant charges)
-Instead of guests self-booking and auto-charging, all portal actions (tours, transport, rentals) will create a **pending request** that staff must confirm. The room charge only happens when staff confirms.
+## Changes
 
-**Guest Portal changes (`src/pages/GuestPortal.tsx`):**
+### File: `src/components/admin/HousekeepingInspection.tsx`
 
-- **Tours**: Guest selects tour, date, pax, and optional notes. Submits as a pending `tour_bookings` record (status = 'pending'). No room charge yet.
-- **Transport**: Guest selects route, date, time. Submits as a pending `guest_requests` record (type = 'Transport'). No room charge yet.
-- **Rentals (Scooter)**: Improve the UI significantly:
-  - Add rental duration selection: "Half Day (8AM-1PM)", "Full Day (8AM-6PM)", "24 Hours", "Multi-Day"
-  - Add start date picker
-  - Add number of days field (shown for Multi-Day)
-  - Add notes/preferences field (e.g., "automatic preferred")
-  - Submits as pending `guest_requests` record. No room charge yet.
+**1. Remove PIN from inspection submission**
+- Currently: clicking "Complete Inspection" opens the PIN modal (`setPinAction('inspection')`)
+- Change: clicking "Complete Inspection" calls `completeInspection()` directly, using the already-authenticated housekeeper info from `localStorage` (set when they accepted the assignment with PIN)
 
-### 3. Staff confirmation in Admin Activity tab (`src/components/admin/GuestPortalConfig.tsx`)
+**2. Auto-transition to cleaning after inspection**
+- Currently: `completeInspection` updates the DB but the component's `step` variable is derived from `order.status`, and the `order` prop doesn't refresh -- so the screen stays on inspection.
+- Fix: After the DB update succeeds, force a local state change so the UI immediately shows the cleaning step without requiring navigation or page reload. Add a local `currentStep` state that overrides the prop-derived step.
 
-**Activity tab enhancements:**
+**3. Keep PIN only for cleaning completion**
+- The PIN modal and `pinAction` state will only be used for the cleaning completion step (no change needed here).
 
-- **Tour Bookings**: Add "Confirm" and "Cancel" buttons to pending bookings. On confirm, staff name is recorded in `confirmed_by` and room charge is created via `room_transactions`. Status updates to 'confirmed'.
-- **Guest Requests (Transport/Rentals)**: The existing Accept/Complete flow will be enhanced. On "Accept", the staff member's name is recorded in `confirmed_by` and the room charge is created. Staff name is pulled from the admin login session (localStorage `staff_name`).
-- **Guest Reviews**: Add a "Reviewed by" acknowledgment button.
+### Technical Details
 
-### 4. Improved Tour Booking UI (Guest Portal)
+1. Add `const [currentStep, setCurrentStep] = useState(step)` to track the active step locally
+2. Change the "Complete Inspection" button's `onClick` from `() => setPinAction('inspection')` to call `completeInspection()` directly
+3. Modify `completeInspection()` to:
+   - Remove the `confirmedBy` parameter
+   - Use `localStorage.getItem('emp_name')` and `localStorage.getItem('emp_id')` for `inspection_by_name` (the housekeeper already authenticated via PIN when accepting)
+   - After successful DB update, call `setCurrentStep('cleaning')` to immediately show the cleaning screen
+4. Update the step variable usage throughout the component to use `currentStep` instead of the prop-derived `step`
+5. Remove the `pinAction === 'inspection'` branch from `handlePinConfirm`
+6. Update PIN modal title/description to only reference cleaning completion
 
-Current: Select tour card, pick date and pax, book.
-
-Enhanced:
-- Add **pickup time** field (text input, e.g. "7:00 AM")
-- Add **special requests/notes** textarea (e.g., "Vegetarian lunch", "Need snorkel gear")
-- Show tour details more clearly: included items, what to bring
-- Confirmation shows "Your booking request has been submitted. Staff will confirm shortly."
-
-### 5. Improved Scooter/Rental UI (Guest Portal)
-
-Current: One-tap instant charge with no options.
-
-Enhanced:
-- **Item type cards** with icons (Scooter, Bicycle, Kayak, etc.)
-- **Duration selector**: Radio group with options pulled from `rental_rates` (Half Day, Full Day, 24hrs, etc.)
-- **Start date** picker
-- **Number of units** (default 1)
-- **Notes** field for preferences
-- Total price calculated dynamically
-- Submit creates a pending request, not an instant charge
-
-### 6. Staff name tracking
-
-The admin session already stores the logged-in staff name. All confirmation actions will use this to populate:
-- `confirmed_by` on `tour_bookings` and `guest_requests`
-- `staff_name` on `room_transactions` (replacing 'Guest Portal')
-
----
-
-## Technical Summary
-
-| File | Changes |
-|---|---|
-| Database migration | Add `confirmed_by` and `notes` columns to `tour_bookings`, `guest_requests`, `guest_reviews` |
-| `src/pages/GuestPortal.tsx` | Refactor Tours, Rentals, Transport views to submit as pending (no auto-charge). Add duration/date/notes to rentals. Add pickup time/notes to tours. |
-| `src/components/admin/GuestPortalConfig.tsx` | Add staff confirm/cancel flow to Activity tab for tours, transport, rentals. On confirm: record staff name, create room charge. |
-
-All portal actions become: Guest requests -> Staff confirms (with name logged) -> Room charged.
