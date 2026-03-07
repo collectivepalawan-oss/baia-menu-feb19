@@ -129,6 +129,14 @@ const Index = () => {
                 Staff Order
               </button>
             )}
+            {(session.isAdmin || hasAccess(session.permissions || [], 'menu')) && (
+              <button
+                onClick={() => navigate('/menu?mode=staff')}
+                className="font-display text-sm tracking-wider py-3 border border-foreground/10 text-cream-dim hover:bg-foreground/5 transition-colors"
+              >
+                📋 Menu
+              </button>
+            )}
             {(session.isAdmin || hasAccess(session.permissions || [], 'kitchen') || hasAccess(session.permissions || [], 'bar')) && (
               <div className="flex gap-2">
                 {(session.isAdmin || hasAccess(session.permissions || [], 'kitchen')) && (
@@ -165,7 +173,7 @@ const Index = () => {
                 <ConciergeBell className="w-4 h-4" /> Reception
               </button>
             )}
-            {(session.isAdmin || hasAccess(session.permissions || [], 'experiences') || hasAccess(session.permissions || [], 'reception')) && (
+            {(session.isAdmin || hasAccess(session.permissions || [], 'experiences')) && (
               <button
                 onClick={() => navigate('/experiences')}
                 className="flex items-center justify-center gap-2 font-display text-sm tracking-wider py-3 border border-foreground/10 text-cream-dim hover:bg-foreground/5 transition-colors"
