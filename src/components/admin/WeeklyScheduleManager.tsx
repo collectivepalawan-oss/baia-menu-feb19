@@ -1028,9 +1028,9 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
 };
 
 // Shift Add/Edit Modal
-const ShiftModal = ({ shiftModal, shiftForm, setShiftForm, employees, saveShift, addBrokenShift, onClose, onDuplicate }: {
+const ShiftModal = ({ shiftModal, shiftForm, setShiftForm, employees, saveShift, addBrokenShift, onClose, onDelete, onDuplicate }: {
   shiftModal: any; shiftForm: any; setShiftForm: any; employees: Employee[];
-  saveShift: () => void; addBrokenShift: () => void; onClose: () => void; onDuplicate?: () => void;
+  saveShift: () => void; addBrokenShift: () => void; onClose: () => void; onDelete?: () => void; onDuplicate?: () => void;
 }) => (
   <Dialog open={!!shiftModal} onOpenChange={() => onClose()}>
     <DialogContent className="bg-card border-border max-w-sm">
