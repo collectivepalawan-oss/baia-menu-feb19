@@ -1098,7 +1098,7 @@ const ShiftModal = ({ shiftModal, shiftForm, setShiftForm, employees, saveShift,
 );
 
 // Delete Confirmation
-const DeleteConfirm = ({ deleteId, setDeleteId, onConfirm }: { deleteId: string | null; setDeleteId: (v: string | null) => void; onConfirm: () => void }) => (
+const DeleteConfirm = ({ deleteId, setDeleteId, onConfirm }: { deleteId: string | null; setDeleteId: (v: string | null) => void; onConfirm: (id: string) => void }) => (
   <AlertDialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>
     <AlertDialogContent className="bg-card border-border">
       <AlertDialogHeader>
@@ -1109,7 +1109,7 @@ const DeleteConfirm = ({ deleteId, setDeleteId, onConfirm }: { deleteId: string 
       </AlertDialogHeader>
       <AlertDialogFooter>
         <AlertDialogCancel className="font-display text-xs">Cancel</AlertDialogCancel>
-        <AlertDialogAction onClick={onConfirm} className="font-display text-xs bg-destructive text-destructive-foreground">
+        <AlertDialogAction onClick={() => { if (deleteId) onConfirm(deleteId); }} className="font-display text-xs bg-destructive text-destructive-foreground">
           Delete
         </AlertDialogAction>
       </AlertDialogFooter>
