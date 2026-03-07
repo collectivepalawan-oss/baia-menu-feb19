@@ -107,6 +107,7 @@ const ReceptionPage = () => {
   const [checkOutPayment, setCheckOutPayment] = useState('');
   const [checkOutAmount, setCheckOutAmount] = useState('');
   const [checkingOut, setCheckingOut] = useState(false);
+  const [checkOutHousekeeper, setCheckOutHousekeeper] = useState('');
 
   // Add Payment modal state
   const [paymentUnit, setPaymentUnit] = useState<any>(null);
@@ -130,6 +131,24 @@ const ReceptionPage = () => {
   const [forcingReady, setForcingReady] = useState<string | null>(null);
 
   const { data: paymentMethods = [] } = usePaymentMethods();
+
+  // Fetch housekeeping employees for checkout picker
+  const { data: hkEmployeesForCheckout = [] } = useQuery({
+    queryKey: ['housekeeping-employees'],
+    queryFn: async () => {
+      const { data: perms } = await supabase.from('employee_permissions')
+        .select('employee_id')
+        .like('permission', 'housekeeping%');
+      const hkIds = new Set((perms || []).map((p: any) => p.employee_id));
+      const { data: emps } = await supabase.from('employees')
+        .select('id, name, display_name, whatsapp_number')
+        .eq('active', true)
+        .order('name');
+      const all = (emps || []) as any[];
+      const filtered = all.filter(e => hkIds.has(e.id));
+      return filtered.length > 0 ? filtered : all;
+    },
+  });
   const activePM = paymentMethods.filter(m => m.is_active && m.name !== 'Charge to Room');
 
   // Compute balance for payment modal
