@@ -65,6 +65,15 @@ const RoomsDashboard = ({ readOnly = false, canViewDocuments = true, initialUnit
   const [noteContent, setNoteContent] = useState('');
   const [noteType, setNoteType] = useState('general');
 
+  // Room types (for base rates)
+  const { data: roomTypes = [] } = useQuery({
+    queryKey: ['room-types'],
+    queryFn: async () => {
+      const { data } = await supabase.from('room_types').select('*').order('name');
+      return (data || []) as any[];
+    },
+  });
+
   // Units
   const { data: units = [] } = useQuery({
     queryKey: ['rooms-units'],
