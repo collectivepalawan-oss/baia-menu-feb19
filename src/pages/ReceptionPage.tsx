@@ -107,6 +107,7 @@ const ReceptionPage = () => {
   const [checkOutPayment, setCheckOutPayment] = useState('');
   const [checkOutAmount, setCheckOutAmount] = useState('');
   const [checkingOut, setCheckingOut] = useState(false);
+  const [checkOutHousekeeper, setCheckOutHousekeeper] = useState('');
 
   // Add Payment modal state
   const [paymentUnit, setPaymentUnit] = useState<any>(null);
@@ -130,6 +131,24 @@ const ReceptionPage = () => {
   const [forcingReady, setForcingReady] = useState<string | null>(null);
 
   const { data: paymentMethods = [] } = usePaymentMethods();
+
+  // Fetch housekeeping employees for checkout picker
+  const { data: hkEmployeesForCheckout = [] } = useQuery({
+    queryKey: ['housekeeping-employees'],
+    queryFn: async () => {
+      const { data: perms } = await supabase.from('employee_permissions')
+        .select('employee_id')
+        .like('permission', 'housekeeping%');
+      const hkIds = new Set((perms || []).map((p: any) => p.employee_id));
+      const { data: emps } = await supabase.from('employees')
+        .select('id, name, display_name, whatsapp_number')
+        .eq('active', true)
+        .order('name');
+      const all = (emps || []) as any[];
+      const filtered = all.filter(e => hkIds.has(e.id));
+      return filtered.length > 0 ? filtered : all;
+    },
+  });
   const activePM = paymentMethods.filter(m => m.is_active && m.name !== 'Charge to Room');
 
   // Compute balance for payment modal
@@ -169,7 +188,7 @@ const ReceptionPage = () => {
       const { data } = await from('housekeeping_orders').select('*').order('created_at', { ascending: false });
       return (data || []) as any[];
     },
-    refetchInterval: 15000,
+    refetchInterval: 5000,
   });
 
   // Derive latest active order per unit
@@ -584,6 +603,7 @@ const ReceptionPage = () => {
   };
 
   // ── CHECK-OUT ──
+
   const handleCheckOut = async () => {
     if (!checkOutBooking || !checkOutUnit) return;
     setCheckingOut(true);
@@ -610,25 +630,48 @@ const ReceptionPage = () => {
       await supabase.from('units').update({ status: 'to_clean' } as any).eq('id', checkOutUnit.id);
 
       const existing = activeHkOrders.find((o: any) => o.unit_name === checkOutUnit.name);
+      const hkEmp = hkEmployeesForCheckout.find((e: any) => e.id === checkOutHousekeeper);
+
       if (!existing) {
         await from('housekeeping_orders').insert({
           unit_name: checkOutUnit.name,
           room_type_id: (checkOutUnit as any).room_type_id || null,
           status: 'pending_inspection',
+          assigned_to: checkOutHousekeeper || null,
+          accepted_by: checkOutHousekeeper || null,
+          accepted_by_name: hkEmp ? (hkEmp.display_name || hkEmp.name) : '',
+          accepted_at: checkOutHousekeeper ? new Date().toISOString() : null,
         });
+      } else if (checkOutHousekeeper) {
+        await from('housekeeping_orders').update({
+          assigned_to: checkOutHousekeeper,
+          accepted_by: checkOutHousekeeper,
+          accepted_by_name: hkEmp ? (hkEmp.display_name || hkEmp.name) : '',
+          accepted_at: new Date().toISOString(),
+        }).eq('id', existing.id);
       }
 
-      await logAudit('updated', 'units', checkOutUnit.id, `Checkout: ${checkOutBooking.resort_ops_guests?.full_name} from ${checkOutUnit.name}`);
+      // Send WhatsApp notification
+      if (hkEmp && hkEmp.whatsapp_number) {
+        const { openWhatsApp } = await import('@/lib/messenger');
+        const gName = checkOutBooking.resort_ops_guests?.full_name || 'Guest';
+        const msg = `🧹 *Room ${checkOutUnit.name} needs cleaning*\n\nGuest "${gName}" has checked out.\nAssigned to you by ${staffName}.\n\nPlease start when ready.`;
+        openWhatsApp(hkEmp.whatsapp_number, msg);
+      }
+
+      await logAudit('updated', 'units', checkOutUnit.id, `Checkout: ${checkOutBooking.resort_ops_guests?.full_name} from ${checkOutUnit.name}${hkEmp ? ` — assigned to ${hkEmp.display_name || hkEmp.name}` : ''}`);
 
       qc.invalidateQueries({ queryKey: ['room-transactions', checkOutUnit.id] });
       qc.invalidateQueries({ queryKey: ['rooms-bookings'] });
       qc.invalidateQueries({ queryKey: ['rooms-units'] });
       qc.invalidateQueries({ queryKey: ['housekeeping-orders'] });
+      qc.invalidateQueries({ queryKey: ['housekeeping-orders-all'] });
 
       setCheckOutOpen(false);
       setCheckOutBooking(null);
       setCheckOutUnit(null);
-      toast.success('Checkout complete — housekeeping order created');
+      setCheckOutHousekeeper('');
+      toast.success(`Checkout complete${hkEmp ? ` — ${hkEmp.display_name || hkEmp.name} notified` : ''}`);
     } catch {
       toast.error('Checkout failed');
     } finally {
@@ -988,81 +1031,99 @@ const ReceptionPage = () => {
         </div>
       </div>
 
-      {/* ── Housekeeping Tracker (embedded) ── */}
+      {/* ── 🧹 Needs Cleaning — Live Housekeeping Progress ── */}
       {activeHkOrders.length > 0 && (
-        <Collapsible open={hkTrackerOpen} onOpenChange={setHkTrackerOpen} className="mb-6">
-          <CollapsibleTrigger className="flex items-center justify-between w-full py-2">
-            <h2 className="font-display text-xs tracking-wider text-muted-foreground uppercase flex items-center gap-2">
-              🧹 Housekeeping Tracker ({activeHkOrders.length})
-            </h2>
-            {hkTrackerOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-          </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-2 pt-2">
-            {activeHkOrder ? (
-              <HousekeepingInspection
-                order={activeHkOrder}
-                onClose={() => {
-                  setActiveHkOrder(null);
-                  qc.invalidateQueries({ queryKey: ['housekeeping-orders-all'] });
-                  qc.invalidateQueries({ queryKey: ['rooms-units'] });
-                }}
-              />
-            ) : (
-              activeHkOrders.map((order: any) => {
-                const hkStatusLabel = order.status === 'pending_inspection' ? 'Pending' : order.status === 'inspecting' ? 'Inspecting' : order.status === 'cleaning' ? 'Cleaning' : order.status;
-                const hkStatusColor = order.status === 'pending_inspection' ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : order.status === 'cleaning' ? 'bg-blue-500/20 text-blue-400 border-blue-500/40' : 'bg-muted text-muted-foreground';
-                const isMyOrder = order.accepted_by === empId;
+        <div className="mb-6 space-y-2">
+          <h2 className="font-display text-xs tracking-wider text-amber-400 uppercase">
+            🧹 Needs Cleaning ({activeHkOrders.length})
+          </h2>
+          {activeHkOrder ? (
+            <HousekeepingInspection
+              order={activeHkOrder}
+              onClose={() => {
+                setActiveHkOrder(null);
+                qc.invalidateQueries({ queryKey: ['housekeeping-orders-all'] });
+                qc.invalidateQueries({ queryKey: ['rooms-units'] });
+              }}
+            />
+          ) : (
+            activeHkOrders.map((order: any) => {
+              const hkStatusLabel = order.status === 'pending_inspection' ? 'Pending' : order.status === 'inspecting' ? 'Inspecting' : order.status === 'cleaning' ? 'Cleaning' : order.status;
+              const hkStatusColor = order.status === 'pending_inspection' ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : order.status === 'cleaning' ? 'bg-blue-500/20 text-blue-400 border-blue-500/40' : 'bg-muted text-muted-foreground';
+              const isMyOrder = order.accepted_by === empId;
+              const timeSince = order.created_at ? `${Math.round((Date.now() - new Date(order.created_at).getTime()) / 60000)} min ago` : '';
 
-                return (
-                  <div key={order.id} className="border border-border rounded-lg p-3 bg-card space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-display text-sm tracking-wider text-foreground">{order.unit_name}</span>
-                        {order.accepted_by_name && (
-                          <p className="font-body text-xs text-muted-foreground">Assigned: {order.accepted_by_name}</p>
-                        )}
-                        {order.accepted_at && (
-                          <p className="font-body text-[10px] text-muted-foreground flex items-center gap-1">
-                            <Clock className="w-3 h-3" /> {format(new Date(order.accepted_at), 'h:mm a')}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <Badge className={`font-body text-xs ${hkStatusColor}`}>{hkStatusLabel}</Badge>
-                        {order.priority === 'urgent' && (
-                          <Badge className="bg-destructive text-destructive-foreground font-body text-[10px]">Urgent</Badge>
-                        )}
-                      </div>
+              return (
+                <div key={order.id} className={`border rounded-lg p-3 bg-card space-y-2 ${
+                  order.priority === 'urgent' ? 'border-destructive/60 bg-destructive/5' : 'border-amber-500/30 bg-amber-500/5'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-display text-sm tracking-wider text-foreground">{order.unit_name}</span>
+                      {order.accepted_by_name ? (
+                        <p className="font-body text-xs text-foreground">👤 {order.accepted_by_name}</p>
+                      ) : (
+                        <p className="font-body text-xs text-amber-400">⚠ Unassigned</p>
+                      )}
+                      <p className="font-body text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> {timeSince}
+                      </p>
                     </div>
-                    <div className="flex gap-2">
-                      {/* Force Ready for managers */}
-                      {canDoManage && (
-                        <Button size="sm" variant="outline" onClick={() => handleForceReady(units.find((u: any) => u.name === order.unit_name) || { id: '', name: order.unit_name })}
-                          disabled={!!forcingReady}
-                          className="font-display text-[10px] tracking-wider min-h-[32px] border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10">
-                          <ShieldCheck className="w-3 h-3 mr-0.5" /> Force Ready
-                        </Button>
-                      )}
-                      {/* Accept / Continue for housekeeping staff */}
-                      {hasHousekeepingAccess && !order.accepted_by && (
-                        <Button size="sm" onClick={() => setAcceptingHkOrderId(order.id)}
-                          className="font-display text-[10px] tracking-wider min-h-[32px]">
-                          Accept with PIN
-                        </Button>
-                      )}
-                      {hasHousekeepingAccess && isMyOrder && (
-                        <Button size="sm" variant="outline" onClick={() => setActiveHkOrder(order)}
-                          className="font-display text-[10px] tracking-wider min-h-[32px]">
-                          Continue →
-                        </Button>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge className={`font-body text-xs ${hkStatusColor}`}>{hkStatusLabel}</Badge>
+                      {order.priority === 'urgent' && (
+                        <Badge className="bg-destructive text-destructive-foreground font-body text-[10px]">Urgent</Badge>
                       )}
                     </div>
                   </div>
-                );
-              })
-            )}
-          </CollapsibleContent>
-        </Collapsible>
+                  <div className="flex flex-wrap gap-2">
+                    {!order.accepted_by && (
+                      <Button size="sm" variant="outline" onClick={() => {
+                        setHkTargetUnit(units.find((u: any) => u.name === order.unit_name) || { id: '', name: order.unit_name });
+                        setHkPickerOpen(true);
+                      }} className="font-display text-[10px] tracking-wider min-h-[32px] border-amber-500/40 text-amber-400 hover:bg-amber-500/10">
+                        Assign
+                      </Button>
+                    )}
+                    {order.accepted_by_name && (
+                      <Button size="sm" variant="ghost" onClick={() => {
+                        const emp = hkEmployeesForCheckout.find((e: any) => e.id === order.accepted_by);
+                        if (emp?.whatsapp_number) {
+                          import('@/lib/messenger').then(({ openWhatsApp }) => {
+                            openWhatsApp(emp.whatsapp_number, `Reminder: Room ${order.unit_name} still needs cleaning. Please update status.`);
+                          });
+                        } else {
+                          toast.info('No WhatsApp number for this staff member');
+                        }
+                      }} className="font-display text-[10px] tracking-wider min-h-[32px]">
+                        📲 Remind
+                      </Button>
+                    )}
+                    {canDoManage && (
+                      <Button size="sm" variant="outline" onClick={() => handleForceReady(units.find((u: any) => u.name === order.unit_name) || { id: '', name: order.unit_name })}
+                        disabled={!!forcingReady}
+                        className="font-display text-[10px] tracking-wider min-h-[32px] border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10">
+                        <ShieldCheck className="w-3 h-3 mr-0.5" /> Force Ready
+                      </Button>
+                    )}
+                    {hasHousekeepingAccess && !order.accepted_by && (
+                      <Button size="sm" onClick={() => setAcceptingHkOrderId(order.id)}
+                        className="font-display text-[10px] tracking-wider min-h-[32px]">
+                        Accept with PIN
+                      </Button>
+                    )}
+                    {hasHousekeepingAccess && isMyOrder && (
+                      <Button size="sm" variant="outline" onClick={() => setActiveHkOrder(order)}
+                        className="font-display text-[10px] tracking-wider min-h-[32px]">
+                        Continue →
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       )}
 
 
@@ -1244,6 +1305,30 @@ const ReceptionPage = () => {
                       className="bg-secondary border-border text-foreground font-body" />
                   </div>
                 )}
+                {/* Assign Housekeeper */}
+                <div className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-3 space-y-2">
+                  <p className="font-display text-xs tracking-wider text-amber-400 uppercase">🧹 Assign Housekeeper</p>
+                  <Select onValueChange={setCheckOutHousekeeper} value={checkOutHousekeeper}>
+                    <SelectTrigger className="bg-secondary border-border text-foreground font-body">
+                      <SelectValue placeholder="Select housekeeper (optional)" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      {hkEmployeesForCheckout.map((e: any) => (
+                        <SelectItem key={e.id} value={e.id} className="text-foreground font-body">
+                          {e.display_name || e.name}{e.whatsapp_number ? ' 📱' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {checkOutHousekeeper && (() => {
+                    const emp = hkEmployeesForCheckout.find((e: any) => e.id === checkOutHousekeeper);
+                    return emp?.whatsapp_number ? (
+                      <p className="font-body text-xs text-emerald-400">✓ Will notify via WhatsApp on checkout</p>
+                    ) : (
+                      <p className="font-body text-xs text-muted-foreground">No WhatsApp number — assignment only</p>
+                    );
+                  })()}
+                </div>
               </div>
             );
           })()}
