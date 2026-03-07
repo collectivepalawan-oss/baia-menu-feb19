@@ -1076,9 +1076,8 @@ const ShiftModal = ({ shiftModal, shiftForm, setShiftForm, employees, saveShift,
           </div>
         </div>
       </div>
-      {shiftModal?.mode === 'edit' && (
-        <Button variant="destructive" className="w-full font-display text-xs min-h-[44px]"
-          onClick={() => { if (shiftModal.schedule) { onClose(); setTimeout(() => (window as any).__scheduleDeleteId?.(shiftModal.schedule.id), 50); } }}>
+      {shiftModal?.mode === 'edit' && onDelete && (
+        <Button variant="destructive" className="w-full font-display text-xs min-h-[44px]" onClick={onDelete}>
           <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete This Shift
         </Button>
       )}
