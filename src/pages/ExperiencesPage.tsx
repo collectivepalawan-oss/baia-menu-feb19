@@ -414,6 +414,46 @@ const ExperiencesPage = () => {
           ))}
         </div>
       )}
+
+      {/* ── Recent History (last 24h) ── */}
+      {(recentRequests.length > 0 || recentTours.length > 0) && (
+        <Collapsible open={historyOpen} onOpenChange={setHistoryOpen} className="mt-6">
+          <CollapsibleTrigger className="flex items-center gap-2 w-full">
+            <History className="w-3.5 h-3.5 text-muted-foreground" />
+            <h2 className="font-display text-xs tracking-wider text-muted-foreground uppercase">
+              Recent History ({recentRequests.length + recentTours.length})
+            </h2>
+            <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground ml-auto transition-transform ${historyOpen ? 'rotate-180' : ''}`} />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-2 mt-2">
+            {recentTours.map((tour: any) => (
+              <div key={tour.id} className="border border-border rounded-lg p-3 opacity-60">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-display text-sm text-foreground tracking-wider">{tour.tour_name}</p>
+                    <p className="font-body text-xs text-muted-foreground">{tour.unit_name} · {tour.pax} pax</p>
+                  </div>
+                  <Badge className={`font-body text-xs ${statusColor(tour.status)}`}>{tour.status}</Badge>
+                </div>
+              </div>
+            ))}
+            {recentRequests.map((req: any) => (
+              <div key={req.id} className="border border-border rounded-lg p-3 opacity-60">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      {getRequestIcon(req.request_type)}
+                      <p className="font-display text-sm text-foreground tracking-wider">{req.request_type}</p>
+                    </div>
+                    <p className="font-body text-xs text-muted-foreground">{req.guest_name} · {req.details}</p>
+                  </div>
+                  <Badge className={`font-body text-xs ${statusColor(req.status)}`}>{req.status}</Badge>
+                </div>
+              </div>
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
+      )}
     </div>
   );
 };
