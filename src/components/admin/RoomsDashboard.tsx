@@ -229,14 +229,14 @@ const RoomsDashboard = ({ readOnly = false, canViewDocuments = true, initialUnit
       created_by: 'admin',
     });
     setNoteContent('');
-    qc.invalidateQueries({ queryKey: ['guest-notes', selectedUnit.name] });
+    qc.invalidateQueries({ queryKey: ['guest-notes', selectedUnit.name, currentBooking?.id] });
     toast.success('Note added');
   };
 
   const deleteNote = async (id: string) => {
     if (readOnly) { toast.error('View-only access'); return; }
     await from('guest_notes').delete().eq('id', id);
-    qc.invalidateQueries({ queryKey: ['guest-notes', selectedUnit?.name] });
+    qc.invalidateQueries({ queryKey: ['guest-notes', selectedUnit?.name, currentBooking?.id] });
     toast.success('Note deleted');
   };
 
@@ -256,21 +256,21 @@ const RoomsDashboard = ({ readOnly = false, canViewDocuments = true, initialUnit
     });
     setTourName(''); setTourDate(''); setTourPax('1'); setTourPrice('');
     setTourProvider(''); setTourPickupTime(''); setTourNotes('');
-    qc.invalidateQueries({ queryKey: ['guest-tours', selectedUnit.name] });
+    qc.invalidateQueries({ queryKey: ['guest-tours', selectedUnit.name, currentBooking?.id] });
     toast.success('Tour added');
   };
 
   const updateTourStatus = async (id: string, status: string) => {
     if (readOnly) { toast.error('View-only access'); return; }
     await from('guest_tours').update({ status }).eq('id', id);
-    qc.invalidateQueries({ queryKey: ['guest-tours', selectedUnit?.name] });
+    qc.invalidateQueries({ queryKey: ['guest-tours', selectedUnit?.name, currentBooking?.id] });
     toast.success('Tour updated');
   };
 
   const deleteTour = async (id: string) => {
     if (readOnly) { toast.error('View-only access'); return; }
     await from('guest_tours').delete().eq('id', id);
-    qc.invalidateQueries({ queryKey: ['guest-tours', selectedUnit?.name] });
+    qc.invalidateQueries({ queryKey: ['guest-tours', selectedUnit?.name, currentBooking?.id] });
     toast.success('Tour deleted');
   };
 
