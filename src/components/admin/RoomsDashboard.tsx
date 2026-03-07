@@ -139,14 +139,16 @@ const RoomsDashboard = ({ readOnly = false, canViewDocuments = true, initialUnit
     },
   });
 
-  // Orders for selected unit
+  // Orders for selected unit - only during current booking period
   const { data: unitOrders = [] } = useQuery({
-    queryKey: ['rooms-orders', selectedUnit?.name],
-    enabled: !!selectedUnit,
+    queryKey: ['rooms-orders', selectedUnit?.name, currentBooking?.id],
+    enabled: !!selectedUnit && !!currentBooking,
     queryFn: async () => {
       const { data } = await supabase.from('orders').select('*')
         .eq('order_type', 'Room')
         .eq('location_detail', selectedUnit!.name)
+        .gte('created_at', currentBooking!.check_in + 'T00:00:00')
+        .lte('created_at', currentBooking!.check_out + 'T23:59:59')
         .order('created_at', { ascending: false })
         .limit(50);
       return data || [];
@@ -178,32 +180,32 @@ const RoomsDashboard = ({ readOnly = false, canViewDocuments = true, initialUnit
   const currentBooking = getActiveBooking(selectedUnit);
   const guestId = (currentBooking as any)?.guest_id;
 
-  // Documents - query by unit_name (works with or without guest)
+  // Documents - only show for current booking's guest
   const { data: documents = [] } = useQuery({
-    queryKey: ['guest-documents', selectedUnit?.name],
-    enabled: !!selectedUnit,
+    queryKey: ['guest-documents', selectedUnit?.name, guestId],
+    enabled: !!selectedUnit && !!guestId,
     queryFn: async () => {
-      const { data } = await from('guest_documents').select('*').eq('unit_name', selectedUnit!.name).order('created_at', { ascending: false });
+      const { data } = await from('guest_documents').select('*').eq('unit_name', selectedUnit!.name).eq('guest_id', guestId).order('created_at', { ascending: false });
       return (data || []) as any[];
     },
   });
 
-  // Guest notes
+  // Guest notes - only for current booking
   const { data: notes = [] } = useQuery({
-    queryKey: ['guest-notes', selectedUnit?.name],
-    enabled: !!selectedUnit,
+    queryKey: ['guest-notes', selectedUnit?.name, currentBooking?.id],
+    enabled: !!selectedUnit && !!currentBooking,
     queryFn: async () => {
-      const { data } = await from('guest_notes').select('*').eq('unit_name', selectedUnit!.name).order('created_at', { ascending: false });
+      const { data } = await from('guest_notes').select('*').eq('booking_id', currentBooking!.id).order('created_at', { ascending: false });
       return (data || []) as any[];
     },
   });
 
-  // Guest tours - query by unit_name (works without booking)
+  // Guest tours - only for current booking
   const { data: tours = [] } = useQuery({
-    queryKey: ['guest-tours', selectedUnit?.name],
-    enabled: !!selectedUnit,
+    queryKey: ['guest-tours', selectedUnit?.name, currentBooking?.id],
+    enabled: !!selectedUnit && !!currentBooking,
     queryFn: async () => {
-      const { data } = await from('guest_tours').select('*').eq('unit_name', selectedUnit!.name).order('tour_date');
+      const { data } = await from('guest_tours').select('*').eq('booking_id', currentBooking!.id).order('tour_date');
       return (data || []) as any[];
     },
   });
