@@ -139,22 +139,6 @@ const RoomsDashboard = ({ readOnly = false, canViewDocuments = true, initialUnit
     },
   });
 
-  // Orders for selected unit - only during current booking period
-  const { data: unitOrders = [] } = useQuery({
-    queryKey: ['rooms-orders', selectedUnit?.name, currentBooking?.id],
-    enabled: !!selectedUnit && !!currentBooking,
-    queryFn: async () => {
-      const { data } = await supabase.from('orders').select('*')
-        .eq('order_type', 'Room')
-        .eq('location_detail', selectedUnit!.name)
-        .gte('created_at', currentBooking!.check_in + 'T00:00:00')
-        .lte('created_at', currentBooking!.check_out + 'T23:59:59')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      return data || [];
-    },
-  });
-
   // Get unit status — must be declared before getActiveBooking which depends on it
   const getUnitStatus = (unit: any): 'occupied' | 'to_clean' | 'ready' => {
     return (unit as any).status || 'ready';
@@ -179,6 +163,22 @@ const RoomsDashboard = ({ readOnly = false, canViewDocuments = true, initialUnit
 
   const currentBooking = getActiveBooking(selectedUnit);
   const guestId = (currentBooking as any)?.guest_id;
+
+  // Orders for selected unit - only during current booking period
+  const { data: unitOrders = [] } = useQuery({
+    queryKey: ['rooms-orders', selectedUnit?.name, currentBooking?.id],
+    enabled: !!selectedUnit && !!currentBooking,
+    queryFn: async () => {
+      const { data } = await supabase.from('orders').select('*')
+        .eq('order_type', 'Room')
+        .eq('location_detail', selectedUnit!.name)
+        .gte('created_at', currentBooking!.check_in + 'T00:00:00')
+        .lte('created_at', currentBooking!.check_out + 'T23:59:59')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      return data || [];
+    },
+  });
 
   // Documents - only show for current booking's guest
   const { data: documents = [] } = useQuery({
