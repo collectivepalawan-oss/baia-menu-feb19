@@ -1,37 +1,50 @@
 
 
-## Plan: Fix Schedule Delete & Enhance Task/Assignment Scheduling
+## Plan: Seamless Reception → Housekeeping → Ready Flow
 
-### Issues Found
+### Problem
+The current system has the pieces (checkout creates housekeeping orders, housekeeping inspection/cleaning marks rooms ready) but the **user experience is disconnected**:
 
-1. **Delete button bug**: The trash icon on shift blocks triggers `setDeleteId(s.id)`, but the parent div's `onClick={() => openEdit(s)}` fires simultaneously despite `stopPropagation`. On mobile, the tiny button (3x3 icon) is nearly impossible to tap. The AlertDialog `onOpenChange={() => setDeleteId(null)}` also races with the confirm action.
-
-2. **Missing scheduling features**: The schedule only manages time shifts. There's no way to assign tasks like housecleaning, reception duty, or track completion from within the schedule view.
+1. **Reception checkout doesn't let you pick a housekeeper** — it silently creates a `pending_inspection` order with no assignment, so housekeepers don't know who should clean
+2. **Housekeeping status on Reception page is buried** at the bottom in a collapsible section — staff must scroll to find it
+3. **"To Clean" rooms on Reception show no progress** — no indication if someone accepted, is inspecting, or cleaning
+4. **No notification to housekeeping** — checkout just creates a DB row; no WhatsApp/Messenger ping to the assigned housekeeper
+5. **After cleaning completes, Reception has no feedback** — room silently becomes "Ready" but reception staff isn't notified
 
 ### Changes
 
-**1. Fix Delete Button** (`WeeklyScheduleManager.tsx`)
-- Make `confirmDelete` capture `deleteId` before the dialog closes by saving it in a ref or local variable
-- Increase touch target size for edit/delete buttons on shift blocks
-- Prevent edit modal from opening when clicking edit/delete icons (the `stopPropagation` exists but the parent click handler on the entire timeline area also fires)
+**1. CheckoutModal: Add housekeeper assignment + notification** (`src/components/rooms/CheckoutModal.tsx`)
+- Add a housekeeper picker dropdown (reuse employee query filtered to housekeeping staff) inside the checkout modal
+- When checkout completes and housekeeping order is created, assign the selected housekeeper directly (`assigned_to`, `accepted_by`, `accepted_by_name`)
+- After creating the order, auto-send WhatsApp/Messenger notification to the assigned housekeeper: "Room [X] needs cleaning — checked out by [staff]"
+- Use the same messaging pattern from `lib/messenger.ts`
 
-**2. Add Task/Assignment Creation from Schedule** (`WeeklyScheduleManager.tsx`)
-- Add an "Assign Task" button alongside "Add Shift" 
-- New modal to create a task assignment: select employee, pick type (Housecleaning, Reception, Custom), set date/time, add notes
-- For housecleaning: select a room/unit to clean, auto-creates a `housekeeping_orders` entry assigned to the selected employee
-- For other tasks: creates an `employee_tasks` entry with due date and description
-- Tasks appear as colored pills on the timeline (already partially implemented)
+**2. Reception "To Clean" cards: Show live housekeeping progress** (`src/pages/ReceptionPage.tsx`)
+- Currently "to_clean" rooms only appear in the Quick Room Status grid with tiny tiles. Add a dedicated **"🧹 Needs Cleaning"** section (above the collapsible tracker) showing each to_clean room as a full card with:
+  - Assigned housekeeper name (or "Unassigned")
+  - Current status badge: Pending → Inspecting → Cleaning → with color coding
+  - Time since created (e.g. "15 min ago")
+  - "Assign" button if unassigned (opens HousekeeperPickerModal)
+  - "Send Reminder" button to re-ping the housekeeper via WhatsApp
+- Remove the separate collapsible housekeeping tracker — merge it into this section for a single view
 
-**3. Show Completion Info on Task Detail** (`WeeklyScheduleManager.tsx`)
-- In the task detail dialog, show who completed the task and when (`completed_at`)
-- For housekeeping pills, show completion status (`cleaning_completed_at`, `completed_by_name`)
-- Make housekeeping pills clickable to show full details (room, status, who inspected/cleaned)
+**3. ReceptionPage checkout: Also add housekeeper picker** (`src/pages/ReceptionPage.tsx`)
+- The Reception page has its own inline checkout flow (lines 587-637). Add the same housekeeper picker here
+- When checking out, assign the housekeeper and send notification
 
-**4. Enhance Task Detail Dialog** (`WeeklyScheduleManager.tsx`)
-- Add edit capability: change title, description, due date, reassign to different employee
-- Add delete capability for tasks
-- Show completion audit trail
+**4. Housekeeping completion → auto-notify reception** (`src/components/admin/HousekeepingInspection.tsx`)
+- After `completeCleaning` sets room to "ready", show a toast on the housekeeper's screen confirming "Room ready — Reception notified"
+- No code change needed for reception since queries auto-refresh every 15s, but reduce `refetchInterval` from 15s → 5s for faster feedback
+
+**5. Simplify HousekeeperPage flow** (`src/pages/HousekeeperPage.tsx`)
+- Make the "Accept with PIN" button larger and more prominent
+- When an order has `assigned_to` matching the current employee, auto-highlight it as "Assigned to you" with a distinct color
+- Add room priority visual: urgent orders at top with red border
 
 ### Files to Edit
-- `src/components/admin/WeeklyScheduleManager.tsx` — all changes in this single file
+1. `src/components/rooms/CheckoutModal.tsx` — housekeeper picker + notification on checkout
+2. `src/pages/ReceptionPage.tsx` — dedicated "Needs Cleaning" section with live progress, housekeeper picker on checkout, faster refresh
+3. `src/components/admin/HousekeepingInspection.tsx` — completion toast improvement
+4. `src/pages/HousekeeperPage.tsx` — highlight assigned orders, larger accept button
+5. `src/lib/messenger.ts` — add helper for housekeeping notification message (may already support it)
 
