@@ -10,7 +10,9 @@ import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { ArrowLeft, LogIn, LogOut, DollarSign, BedDouble, MapPin, Car, Bike, Palmtree, UtensilsCrossed, ClipboardList, Sparkles, Receipt, ChevronDown, ChevronUp, CheckCircle, Clock, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, LogIn, LogOut, DollarSign, BedDouble, MapPin, Car, Bike, Palmtree, UtensilsCrossed, ClipboardList, Sparkles, Receipt, ChevronDown, ChevronUp, CheckCircle, Clock, ShieldCheck, Eye } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import RoomsDashboard from '@/components/admin/RoomsDashboard';
 import AddPaymentModal from '@/components/rooms/AddPaymentModal';
 import HousekeeperPickerModal from '@/components/rooms/HousekeeperPickerModal';
 import PasswordConfirmModal from '@/components/housekeeping/PasswordConfirmModal';
@@ -130,6 +132,10 @@ const ReceptionPage = () => {
   const [acceptingHkOrderId, setAcceptingHkOrderId] = useState<string | null>(null);
   const [forcingReady, setForcingReady] = useState<string | null>(null);
 
+  // Room detail sheet state
+  const [detailUnit, setDetailUnit] = useState<any>(null);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const hasDocAccess = isAdmin || hasAccess(perms, 'documents');
   const { data: paymentMethods = [] } = usePaymentMethods();
 
   // Fetch housekeeping employees for checkout picker
