@@ -14,6 +14,7 @@ import RoomsDashboard from '@/components/admin/RoomsDashboard';
 import WeeklyScheduleManager from '@/components/admin/WeeklyScheduleManager';
 import TimesheetDashboard from '@/components/admin/TimesheetDashboard';
 import HousekeepingConfig from '@/components/admin/HousekeepingConfig';
+import DepartmentOrdersView from '@/components/DepartmentOrdersView';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { deductInventoryForOrder } from '@/lib/inventoryDeduction';
@@ -21,6 +22,12 @@ import { hasAccess, canEdit, canViewDocuments } from '@/lib/permissions';
 
 const TAB_MAP: Record<string, { value: string; label: string }> = {
   orders: { value: 'orders', label: 'Orders' },
+  menu: { value: 'menu', label: 'Menu' },
+  kitchen: { value: 'kitchen', label: 'Kitchen' },
+  bar: { value: 'bar', label: 'Bar' },
+  housekeeping: { value: 'housekeeping', label: 'Housekeeping' },
+  reception: { value: 'reception', label: 'Reception' },
+  experiences: { value: 'experiences', label: 'Experiences' },
   reports: { value: 'reports', label: 'Reports' },
   inventory: { value: 'inventory', label: 'Inventory' },
   payroll: { value: 'payroll', label: 'HR' },
@@ -31,7 +38,10 @@ const TAB_MAP: Record<string, { value: string; label: string }> = {
   timesheet: { value: 'timesheet', label: 'Timesheet' },
 };
 
-const SECTIONS = ['orders', 'reports', 'inventory', 'payroll', 'resort_ops', 'rooms', 'schedules', 'setup', 'timesheet'] as const;
+const SECTIONS = [
+  'orders', 'menu', 'kitchen', 'bar', 'housekeeping', 'reception', 'experiences',
+  'reports', 'inventory', 'payroll', 'resort_ops', 'rooms', 'schedules', 'setup', 'timesheet',
+] as const;
 
 const ManagerPage = () => {
   const navigate = useNavigate();
@@ -57,6 +67,16 @@ const ManagerPage = () => {
     enabled: hasAccess(permissions, 'orders'),
     queryFn: async () => {
       const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(200);
+      return data || [];
+    },
+  });
+
+  // Menu items for the menu tab
+  const { data: menuItems = [] } = useQuery({
+    queryKey: ['menu-items-manager'],
+    enabled: hasAccess(permissions, 'menu'),
+    queryFn: async () => {
+      const { data } = await supabase.from('menu_items').select('*').order('category').order('sort_order');
       return data || [];
     },
   });
@@ -99,6 +119,12 @@ const ManagerPage = () => {
     }
     qc.invalidateQueries({ queryKey: ['orders-manager'] });
     toast.success(`Order → ${nextStatus}`);
+  };
+
+  const toggleMenuAvailability = async (itemId: string, available: boolean) => {
+    await supabase.from('menu_items').update({ available } as any).eq('id', itemId);
+    qc.invalidateQueries({ queryKey: ['menu-items-manager'] });
+    toast.success(available ? 'Item available' : 'Item unavailable');
   };
 
   if (!empId) {
@@ -173,6 +199,75 @@ const ManagerPage = () => {
               {filteredOrders.map(order => (
                 <OrderCard key={order.id} order={order} onAdvance={readOnly('orders') ? undefined : advanceOrder} />
               ))}
+            </TabsContent>
+          )}
+
+          {hasAccess(permissions, 'menu') && (
+            <TabsContent value="menu" className="space-y-3">
+              <p className="font-display text-xs tracking-wider text-foreground">Menu Items</p>
+              {menuItems.length === 0 && (
+                <p className="font-body text-sm text-muted-foreground text-center py-4">No menu items</p>
+              )}
+              {menuItems.map((item: any) => (
+                <div key={item.id} className="flex items-center justify-between border border-border rounded-lg p-3">
+                  <div>
+                    <p className="font-body text-sm text-foreground">{item.name}</p>
+                    <p className="font-body text-xs text-muted-foreground">{item.category} · ₱{Number(item.price).toFixed(0)}</p>
+                  </div>
+                  {!readOnly('menu') && (
+                    <Button size="sm" variant={item.available ? 'default' : 'outline'}
+                      onClick={() => toggleMenuAvailability(item.id, !item.available)}
+                      className="font-display text-xs tracking-wider">
+                      {item.available ? 'Available' : 'Unavailable'}
+                    </Button>
+                  )}
+                  {readOnly('menu') && (
+                    <span className={`font-body text-xs ${item.available ? 'text-emerald-400' : 'text-muted-foreground'}`}>
+                      {item.available ? 'Available' : 'Unavailable'}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </TabsContent>
+          )}
+
+          {hasAccess(permissions, 'kitchen') && (
+            <TabsContent value="kitchen">
+              <DepartmentOrdersView department="kitchen" />
+            </TabsContent>
+          )}
+
+          {hasAccess(permissions, 'bar') && (
+            <TabsContent value="bar">
+              <DepartmentOrdersView department="bar" />
+            </TabsContent>
+          )}
+
+          {hasAccess(permissions, 'housekeeping') && (
+            <TabsContent value="housekeeping">
+              <div className={readOnly('housekeeping') ? 'pointer-events-none opacity-70' : ''}>
+                <HousekeepingConfig />
+              </div>
+            </TabsContent>
+          )}
+
+          {hasAccess(permissions, 'reception') && (
+            <TabsContent value="reception">
+              <div className="text-center py-8">
+                <Button onClick={() => navigate('/reception')} className="font-display text-sm tracking-wider">
+                  Open Reception
+                </Button>
+              </div>
+            </TabsContent>
+          )}
+
+          {hasAccess(permissions, 'experiences') && (
+            <TabsContent value="experiences">
+              <div className="text-center py-8">
+                <Button onClick={() => navigate('/experiences')} className="font-display text-sm tracking-wider">
+                  Open Experiences
+                </Button>
+              </div>
             </TabsContent>
           )}
 
