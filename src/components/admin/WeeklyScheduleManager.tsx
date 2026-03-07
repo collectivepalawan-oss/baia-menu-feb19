@@ -848,7 +848,9 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
 
         <ShiftModal shiftModal={shiftModal} shiftForm={shiftForm} setShiftForm={setShiftForm}
           employees={employees} saveShift={saveShift} addBrokenShift={addBrokenShift}
-          onClose={() => setShiftModal(null)} onDuplicate={shiftModal?.mode === 'edit' && shiftModal.schedule ? () => { duplicateShift(shiftModal.schedule!); setShiftModal(null); } : undefined} />
+          onClose={() => setShiftModal(null)}
+          onDelete={shiftModal?.mode === 'edit' && shiftModal.schedule ? () => { setShiftModal(null); setDeleteId(shiftModal.schedule!.id); } : undefined}
+          onDuplicate={shiftModal?.mode === 'edit' && shiftModal.schedule ? () => { duplicateShift(shiftModal.schedule!); setShiftModal(null); } : undefined} />
 
         <DeleteConfirm deleteId={deleteId} setDeleteId={setDeleteId} onConfirm={confirmDelete} />
 
