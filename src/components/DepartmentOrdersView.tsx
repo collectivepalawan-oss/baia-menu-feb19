@@ -32,7 +32,7 @@ const DEPT_STATUS_COLORS: Record<DeptStatus, string> = {
 
 const DEPT_TABS: DeptStatus[] = ['pending', 'preparing', 'ready'];
 
-const DepartmentOrdersView = ({ department }: DepartmentOrdersViewProps) => {
+const DepartmentOrdersView = ({ department, embedded = false }: DepartmentOrdersViewProps) => {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const audioCtxRef = useRef<AudioContext | null>(null);
