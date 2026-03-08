@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Plus, Check, CheckCircle2, Pencil, Trash2, X, MessageCircle, Phone, Users, Eye } from 'lucide-react';
+import { Plus, Check, CheckCircle2, Pencil, Trash2, X, MessageCircle, Phone, Users, Eye, Upload } from 'lucide-react';
 import { format } from 'date-fns';
 import { sendMessengerMessage, openWhatsApp } from '@/lib/messenger';
 import { useResortProfile } from '@/hooks/useResortProfile';
