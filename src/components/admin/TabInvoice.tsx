@@ -39,7 +39,7 @@ const TYPE_LABELS: Record<string, string> = {
   WalkIn: 'Walk-In Guest',
 };
 
-const TabInvoice = ({ tabId, onClose }: TabInvoiceProps) => {
+const TabInvoice = ({ tabId, onClose, isAdmin }: TabInvoiceProps) => {
   const qc = useQueryClient();
   const { data: profile } = useResortProfile();
   const { data: invoiceSettings } = useInvoiceSettings();
