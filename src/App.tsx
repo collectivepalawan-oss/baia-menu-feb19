@@ -9,7 +9,6 @@ import MenuPage from "./pages/MenuPage";
 import AdminPage from "./pages/AdminPage";
 import EmployeePage from "./pages/EmployeePage";
 import EmployeePortal from "./pages/EmployeePortal";
-import ManagerPage from "./pages/ManagerPage";
 import KitchenPage from "./pages/KitchenPage";
 import BarPage from "./pages/BarPage";
 import NotFound from "./pages/NotFound";
@@ -32,10 +31,9 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/menu" element={<MenuPage />} />
           <Route path="/order-type" element={<RequireAuth requiredPermission="orders"><OrderType /></RequireAuth>} />
-          <Route path="/admin" element={<RequireAuth adminOnly><AdminPage /></RequireAuth>} />
+          <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
           <Route path="/employee" element={<RequireAuth><EmployeePage /></RequireAuth>} />
           <Route path="/employee-portal" element={<RequireAuth><EmployeePortal /></RequireAuth>} />
-          <Route path="/manager" element={<RequireAuth><ManagerPage /></RequireAuth>} />
           <Route path="/kitchen" element={<RequireAuth requiredPermission="kitchen"><KitchenPage /></RequireAuth>} />
           <Route path="/bar" element={<RequireAuth requiredPermission="bar"><BarPage /></RequireAuth>} />
           <Route path="/housekeeper" element={<RequireAuth requiredPermission="housekeeping"><HousekeeperPage /></RequireAuth>} />
