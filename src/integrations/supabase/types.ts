@@ -364,6 +364,7 @@ export type Database = {
       employee_tasks: {
         Row: {
           completed_at: string | null
+          completion_meta: Json | null
           created_at: string
           created_by: string
           description: string
@@ -376,6 +377,7 @@ export type Database = {
         }
         Insert: {
           completed_at?: string | null
+          completion_meta?: Json | null
           created_at?: string
           created_by?: string
           description?: string
@@ -388,6 +390,7 @@ export type Database = {
         }
         Update: {
           completed_at?: string | null
+          completion_meta?: Json | null
           created_at?: string
           created_by?: string
           description?: string
