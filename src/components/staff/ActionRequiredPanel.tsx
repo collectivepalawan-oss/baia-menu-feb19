@@ -14,7 +14,8 @@ interface Task {
   status: string;
   due_date: string | null;
   employee_id: string;
-  completion_meta: Record<string, unknown> | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  completion_meta: any | null;
   created_by: string;
 }
 
