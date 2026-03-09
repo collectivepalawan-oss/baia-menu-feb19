@@ -255,7 +255,7 @@ const ImportReservationsModal = ({ open, onOpenChange, guests, units, onComplete
       <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-sm tracking-wider">Import Reservations</DialogTitle>
-          <DialogDescription className="font-body text-xs text-muted-foreground">Upload a CSV file to batch-create reservations. Dates must be mm/dd/yyyy. Units: G1, G2, G3.</DialogDescription>
+          <DialogDescription className="font-body text-xs text-muted-foreground">Upload a CSV file to batch-create reservations. Dates must be mm/dd/yyyy. Price Per Night = nightly rate per unit.</DialogDescription>
         </DialogHeader>
 
         {/* Result summary */}
