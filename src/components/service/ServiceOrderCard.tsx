@@ -89,14 +89,8 @@ const ServiceOrderCard = ({ order, department, permissions, onAction, onOpenDeta
     if (order.bar_status === 'pending') secondaryActions.push({ label: 'Start', action: 'bar-start', icon: <GlassWater className="w-4 h-4" /> });
     else if (order.bar_status === 'preparing') secondaryActions.push({ label: 'Ready', action: 'bar-ready', icon: <CheckCircle2 className="w-4 h-4" /> });
   }
-  if (department !== 'reception' && canEdit(permissions, 'reception')) {
-    const allReady = (foodItems.length === 0 || order.kitchen_status === 'ready') && (barItems.length === 0 || order.bar_status === 'ready');
-    if (allReady && order.status !== 'Served' && order.status !== 'Paid') {
-      secondaryActions.push({ label: isAutoPayable ? 'Serve & Close' : 'Served', action: 'mark-served', icon: <Truck className="w-4 h-4" /> });
-    } else if (order.status === 'Served' && !isAutoPayable) {
-      secondaryActions.push({ label: 'Paid', action: 'mark-paid', icon: <CreditCard className="w-4 h-4" /> });
-    }
-  }
+  // Show invoice button for non-room/tab served/paid orders
+  const showInvoice = !isAutoPayable && (order.status === 'Served' || order.status === 'Paid');
 
   if (deptItems.length === 0 && department !== 'reception') return null;
 
