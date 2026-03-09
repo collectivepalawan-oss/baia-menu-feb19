@@ -109,7 +109,7 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
   const [checkOutPayment, setCheckOutPayment] = useState('');
   const [checkOutAmount, setCheckOutAmount] = useState('');
   const [checkingOut, setCheckingOut] = useState(false);
-  const [checkOutHousekeeper, setCheckOutHousekeeper] = useState('');
+  // checkOutHousekeeper removed — broadcast mode
 
   // Add Payment modal state
   const [paymentUnit, setPaymentUnit] = useState<any>(null);
