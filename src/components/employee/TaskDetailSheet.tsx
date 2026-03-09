@@ -28,8 +28,10 @@ const TaskDetailSheet = ({ open, onOpenChange, task, employeeName, authorName, r
         .eq('task_id', task.id);
       return count || 0;
     },
-    enabled: open,
+    enabled: open && !!task,
   });
+
+  if (!task) return null;
 
   // Build activity timeline
   const activities: { label: string; time: string }[] = [
