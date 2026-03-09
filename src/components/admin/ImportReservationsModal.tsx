@@ -25,7 +25,7 @@ interface ParsedRow {
   platform: string;
   checkIn: string;
   checkOut: string;
-  totalProjected: string;
+  pricePerNight: string;
   paidRealized: string;
   notes: string;
   errors: string[];
