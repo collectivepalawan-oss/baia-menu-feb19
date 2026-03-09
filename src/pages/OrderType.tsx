@@ -53,6 +53,7 @@ const OrderType = () => {
   const handleProceed = () => {
     if (!canProceed) return;
     const params = new URLSearchParams({ mode, orderType: selectedType, location: locationDetail });
+    if (guestName.trim()) params.set('guestName', guestName.trim());
     navigate(`/menu?${params.toString()}`);
   };
 
