@@ -240,7 +240,7 @@ const StaffAccessManager = () => {
         </Button>
       </div>
       <p className="font-body text-xs text-muted-foreground mb-3">
-        Tap each section badge to cycle: <span className="text-muted-foreground">Off</span> → <span className="text-blue-400">View</span> → <span className="text-emerald-400">Edit</span> → <span className="text-purple-400">Manage</span> (Reception/Experiences) → Off
+        Tap each section badge to cycle: <span className="text-muted-foreground">Off</span> → <span className="text-blue-400">View</span> → <span className="text-emerald-400">Edit</span> → <span className="text-purple-400">Manage</span> (Orders/Reception/Experiences) → Off. Orders Edit = take orders only; Manage = advance pipeline.
       </p>
 
       {/* Custom Roles Management */}
