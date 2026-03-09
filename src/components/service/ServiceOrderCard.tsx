@@ -27,6 +27,7 @@ interface ServiceOrderCardProps {
   onAction?: (orderId: string, action: string) => Promise<void>;
   onOpenDetail?: (order: any) => void;
   compact?: boolean;
+  resortProfile?: ResortProfile | null;
 }
 
 const ServiceOrderCard = ({ order, department, permissions, onAction, onOpenDetail, compact }: ServiceOrderCardProps) => {
