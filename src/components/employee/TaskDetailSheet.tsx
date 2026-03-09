@@ -16,19 +16,20 @@ interface Props {
 }
 
 const TaskDetailSheet = ({ open, onOpenChange, task, employeeName, authorName, readOnly = false }: Props) => {
+  const taskId = task?.id ?? null;
   const meta = task?.completion_meta || {};
   const isCompleted = task?.status === 'completed';
 
   // Fetch comment count for activity log
   const { data: commentCount = 0 } = useQuery({
-    queryKey: ['task-comments-count', task.id],
+    queryKey: ['task-comments-count', taskId],
     queryFn: async () => {
       const { count } = await (supabase.from('task_comments' as any) as any)
         .select('*', { count: 'exact', head: true })
-        .eq('task_id', task.id);
+        .eq('task_id', taskId);
       return count || 0;
     },
-    enabled: open && !!task,
+    enabled: open && !!taskId,
   });
 
   if (!task) return null;
