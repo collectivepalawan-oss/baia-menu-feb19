@@ -377,8 +377,11 @@ const CartDrawer = ({ open, onOpenChange, mode, orderType: initialOrderType, loc
               }} className="font-display tracking-wider py-6 w-full">
                 Place Another Order
               </Button>
-              <Button variant="outline" onClick={() => handleClose(false)} className="font-display tracking-wider py-6 w-full">
-                Done
+              <Button variant="outline" onClick={() => {
+                handleClose(false);
+                if (returnTo) navigate(returnTo);
+              }} className="font-display tracking-wider py-6 w-full">
+                {returnTo ? 'Back to Board' : 'Done'}
               </Button>
             </DrawerFooter>
           </>
