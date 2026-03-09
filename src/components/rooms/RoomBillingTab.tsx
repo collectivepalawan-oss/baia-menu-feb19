@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRoomTransactions } from '@/hooks/useRoomTransactions';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,6 +37,7 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
   const { data: unpaidOrders = [] } = useQuery({
     queryKey: ['billing-unpaid-orders', unit?.id, unit?.name, booking?.id],
     enabled: !!unit,
+    refetchInterval: 10000,
     queryFn: async () => {
       const { data: byRoom } = await supabase.from('orders').select('*')
         .eq('room_id', unit.id).in('status', ['New', 'Preparing', 'Ready', 'Served'])
@@ -47,16 +48,29 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
         .order('created_at', { ascending: false });
       const map = new Map<string, any>();
       for (const o of [...(byRoom || []), ...(byLocation || [])]) map.set(o.id, o);
-      // If booking exists, filter by date range
       let results = Array.from(map.values());
       if (booking) {
-        const start = booking.check_in + 'T00:00:00';
-        const end = booking.check_out + 'T23:59:59';
-        results = results.filter(o => o.created_at >= start && o.created_at <= end);
+        const start = new Date(booking.check_in + 'T00:00:00');
+        const end = new Date(booking.check_out + 'T23:59:59');
+        results = results.filter(o => {
+          const created = new Date(o.created_at);
+          return created >= start && created <= end;
+        });
       }
       return results;
     },
   });
+
+  // ── Realtime subscription for orders ──
+  useEffect(() => {
+    if (!unit) return;
+    const channel = supabase.channel(`billing-orders-${unit.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        qc.invalidateQueries({ queryKey: ['billing-unpaid-orders', unit.id, unit.name, booking?.id] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [unit?.id, booking?.id]);
 
   // ── Guest tours ──
   const { data: tours = [] } = useQuery({
