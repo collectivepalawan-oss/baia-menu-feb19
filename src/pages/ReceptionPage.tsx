@@ -18,7 +18,7 @@ import HousekeeperPickerModal from '@/components/rooms/HousekeeperPickerModal';
 import PasswordConfirmModal from '@/components/housekeeping/PasswordConfirmModal';
 import HousekeepingInspection from '@/components/admin/HousekeepingInspection';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { usePaymentMethods } from '@/hooks/usePaymentMethods';
 import { useRoomTransactions } from '@/hooks/useRoomTransactions';
 import { canEdit, canManage, hasAccess } from '@/lib/permissions';
@@ -295,6 +295,28 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
     const booking = getActiveBooking(u);
     return booking && booking.check_out === today;
   }).map(u => ({ unit: u, booking: getActiveBooking(u)! }));
+
+  // Week-ahead arrivals (tomorrow through +6 days)
+  const tomorrow = addDays(new Date(), 1).toISOString().split('T')[0];
+  const weekEnd = addDays(new Date(), 6).toISOString().split('T')[0];
+  const weekArrivals = bookings.filter((b: any) => b.check_in > today && b.check_in <= weekEnd)
+    .sort((a: any, b: any) => a.check_in.localeCompare(b.check_in));
+  const weekDepartures = bookings.filter((b: any) => b.check_out > today && b.check_out <= weekEnd)
+    .sort((a: any, b: any) => a.check_out.localeCompare(b.check_out));
+
+  // Group week arrivals by date
+  const weekArrivalsByDate = weekArrivals.reduce((acc: Record<string, any[]>, b: any) => {
+    if (!acc[b.check_in]) acc[b.check_in] = [];
+    acc[b.check_in].push(b);
+    return acc;
+  }, {} as Record<string, any[]>);
+
+  // Helper: get upcoming booking for a Ready room
+  const getUpcomingBooking = (unit: any) => {
+    const resortUnit = resolveResortUnit(unit.name);
+    if (!resortUnit) return null;
+    return bookings.find((b: any) => b.unit_id === resortUnit.id && b.check_in > today && b.check_in <= weekEnd) || null;
+  };
 
   // Occupancy counts
   const occupiedUnits = units.filter((u: any) => getUnitStatus(u) === 'occupied');
@@ -737,7 +759,7 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mb-6">
+      <div className="grid grid-cols-4 gap-2 mb-6">
         <div className="border border-border rounded-lg p-3 text-center">
           <p className="font-display text-2xl text-foreground">{todayArrivals.length}</p>
           <p className="font-body text-xs text-muted-foreground">Arrivals</p>
@@ -749,6 +771,10 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
         <div className="border border-border rounded-lg p-3 text-center">
           <p className="font-display text-2xl text-foreground">{readyUnits.length}</p>
           <p className="font-body text-xs text-muted-foreground">Available</p>
+        </div>
+        <div className="border border-blue-500/30 bg-blue-500/10 rounded-lg p-3 text-center">
+          <p className="font-display text-2xl text-blue-400">{weekArrivals.length}</p>
+          <p className="font-body text-xs text-blue-400/70">Week</p>
         </div>
       </div>
 
@@ -860,19 +886,76 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
         </div>
       )}
 
-      {/* ── Walk-In / Sell Room (edit level) ── */}
+      {/* ── Upcoming This Week ── */}
+      {weekArrivals.length > 0 && (
+        <Collapsible defaultOpen={false} className="mb-6">
+          <CollapsibleTrigger className="flex items-center gap-2 w-full">
+            <h2 className="font-display text-xs tracking-wider text-blue-400 uppercase">📅 Upcoming This Week ({weekArrivals.length} arrivals · {weekDepartures.length} departures)</h2>
+            <ChevronDown className="w-3.5 h-3.5 text-blue-400 ml-auto" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-3 mt-2">
+            {Object.entries(weekArrivalsByDate).map(([date, dayBookings]) => (
+              <div key={date} className="space-y-1.5">
+                <p className="font-display text-xs text-muted-foreground tracking-wider">
+                  {format(new Date(date + 'T00:00:00'), 'EEE, MMM d')} — {(dayBookings as any[]).length} arrival{(dayBookings as any[]).length !== 1 ? 's' : ''}
+                </p>
+                {(dayBookings as any[]).map((b: any) => {
+                  const guest = b.resort_ops_guests;
+                  const unitName = getUnitNameForBooking(b);
+                  return (
+                    <div key={b.id} className="border border-blue-500/20 bg-blue-500/5 rounded-lg p-2.5">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-display text-sm text-foreground tracking-wider">{unitName}</p>
+                          <p className="font-body text-xs text-muted-foreground">{guest?.full_name || 'Guest'} · {b.adults} adult{b.adults > 1 ? 's' : ''}{b.children > 0 ? `, ${b.children} child` : ''}</p>
+                          <p className="font-body text-[10px] text-muted-foreground">{b.platform} · ₱{Number(b.room_rate).toLocaleString()}/night · until {format(new Date(b.check_out + 'T00:00:00'), 'MMM d')}</p>
+                        </div>
+                        <Badge className="font-body text-[10px] bg-blue-500/20 text-blue-400 border-blue-500/40">Upcoming</Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+            {weekDepartures.length > 0 && (
+              <div className="space-y-1.5 pt-2 border-t border-border">
+                <p className="font-display text-xs text-muted-foreground tracking-wider uppercase">Upcoming Departures</p>
+                {weekDepartures.map((b: any) => {
+                  const guest = b.resort_ops_guests;
+                  const unitName = getUnitNameForBooking(b);
+                  return (
+                    <div key={b.id} className="border border-border rounded-lg p-2.5">
+                      <p className="font-display text-sm text-foreground tracking-wider">{unitName}</p>
+                      <p className="font-body text-xs text-muted-foreground">{guest?.full_name || 'Guest'} · out {format(new Date(b.check_out + 'T00:00:00'), 'EEE, MMM d')}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
       {readyUnits.length > 0 && (
         <div className="mb-6 space-y-2">
           <div className="flex justify-between items-center">
             <h2 className="font-display text-xs tracking-wider text-foreground uppercase">Walk-In / Sell Room</h2>
           </div>
-          {readyUnits.map((unit: any) => (
+          {readyUnits.map((unit: any) => {
+            const upcoming = getUpcomingBooking(unit);
+            const upGuest = (upcoming as any)?.resort_ops_guests;
+            return (
             <div key={unit.id} className="border border-emerald-500/30 rounded-lg p-3 flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <BedDouble className="w-4 h-4 text-emerald-400" />
                 <div>
                   <p className="font-display text-sm text-foreground tracking-wider">{unit.name}</p>
                   <Badge className="font-body text-xs bg-emerald-500/20 text-emerald-400 border-emerald-500/40">Ready</Badge>
+                  {upcoming && (
+                    <p className="font-body text-[10px] text-blue-400 mt-0.5">
+                      📅 {upGuest?.full_name || 'Guest'} · {format(new Date(upcoming.check_in + 'T00:00:00'), 'MMM d')}
+                    </p>
+                  )}
                 </div>
               </div>
               {canDoEdit && (
@@ -887,7 +970,8 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
                 </Button>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -1047,6 +1131,16 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
                 {guest && (
                   <p className="font-body text-[10px] text-muted-foreground truncate">{guest.full_name}</p>
                 )}
+                {status === 'ready' && (() => {
+                  const upcoming = getUpcomingBooking(unit);
+                  if (!upcoming) return null;
+                  const upGuest = (upcoming as any)?.resort_ops_guests;
+                  return (
+                    <p className="font-body text-[10px] text-blue-400 truncate">
+                      {upGuest?.full_name || 'Guest'} · {format(new Date(upcoming.check_in + 'T00:00:00'), 'MMM d')}
+                    </p>
+                  );
+                })()}
                 {status === 'to_clean' && canDoManage && (
                   <Button size="sm" variant="outline" onClick={() => handleForceReady(unit)}
                     disabled={forcingReady === unit.id}
