@@ -98,6 +98,14 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
         });
       }
 
+      // Batch-settle ALL unpaid room orders
+      if (unpaidOrders.length > 0) {
+        const orderIds = unpaidOrders.map((o: any) => o.id);
+        await supabase.from('orders')
+          .update({ status: 'Paid', closed_at: new Date().toISOString() })
+          .in('id', orderIds);
+      }
+
       if (bookingId) {
         const today = new Date().toISOString().split('T')[0];
         await supabase.from('resort_ops_bookings').update({ check_out: today } as any).eq('id', bookingId);
