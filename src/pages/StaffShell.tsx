@@ -1,8 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { hasAccess } from '@/lib/permissions';
-import { Button } from '@/components/ui/button';
-import { LogOut, Home } from 'lucide-react';
 import ReceptionHome from '@/components/staff/ReceptionHome';
 import HousekeepingHome from '@/components/staff/HousekeepingHome';
 import KitchenHome from '@/components/staff/KitchenHome';
@@ -10,6 +8,7 @@ import BarHome from '@/components/staff/BarHome';
 import ExperiencesHome from '@/components/staff/ExperiencesHome';
 import StaffOrderHome from '@/components/staff/StaffOrderHome';
 import ActionRequiredPanel from '@/components/staff/ActionRequiredPanel';
+import StaffNavBar from '@/components/StaffNavBar';
 
 const SESSION_KEY = 'staff_home_session';
 
@@ -52,13 +51,6 @@ const StaffShell = () => {
 
   const [activeRole, setActiveRole] = useState(() => availableRoles[0]?.key || 'reception');
 
-  const handleLogout = () => {
-    sessionStorage.removeItem(SESSION_KEY);
-    localStorage.removeItem('emp_id');
-    localStorage.removeItem('emp_name');
-    navigate('/');
-  };
-
   if (!session) {
     navigate('/');
     return null;
@@ -66,27 +58,10 @@ const StaffShell = () => {
 
   return (
     <div className="min-h-screen bg-navy-texture overflow-x-hidden">
-      <div className="max-w-2xl mx-auto px-4 py-4">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/')} className="text-muted-foreground hover:text-foreground min-w-[44px] min-h-[44px] flex items-center justify-center">
-              <Home className="w-5 h-5" />
-            </button>
-            <div>
-              <h1 className="font-display text-lg tracking-wider text-foreground">{session.name}</h1>
-              <p className="font-body text-xs text-muted-foreground">Staff Console</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={() => navigate('/employee-portal')} className="text-muted-foreground font-body text-xs">
-              My Portal
-            </Button>
-            <Button size="sm" variant="ghost" onClick={handleLogout} className="text-muted-foreground font-body text-xs gap-1">
-              <LogOut className="w-3.5 h-3.5" />
-            </Button>
-          </div>
-        </div>
+      {/* Global navigation bar */}
+      <StaffNavBar />
+
+      <div className="max-w-2xl mx-auto px-4 pb-4">
 
         {/* Role switcher — only show if multiple roles */}
         {availableRoles.length > 1 && (

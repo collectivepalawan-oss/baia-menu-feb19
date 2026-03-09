@@ -453,14 +453,10 @@ const AdminPage = () => {
 
   return (
     <div className="min-h-screen bg-navy-texture overflow-x-hidden">
-      <div className="max-w-2xl mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => navigate(isAdmin ? '/' : '/employee-portal')} className="text-muted-foreground hover:text-foreground min-w-[44px] min-h-[44px] flex items-center justify-center">
-            <Home className="w-5 h-5" />
-          </button>
-          <h1 className="font-display text-lg tracking-wider text-foreground">Dashboard</h1>
-        </div>
+      {/* Global navigation bar */}
+      <StaffNavBar />
+
+      <div className="max-w-2xl mx-auto px-4 pb-6">
 
         <Tabs defaultValue={defaultTab} className="w-full">
           {/* ── Grouped tab triggers ─────────────────────────── */}
