@@ -30,7 +30,7 @@ interface ServiceOrderCardProps {
   resortProfile?: ResortProfile | null;
 }
 
-const ServiceOrderCard = ({ order, department, permissions, onAction, onOpenDetail, compact }: ServiceOrderCardProps) => {
+const ServiceOrderCard = ({ order, department, permissions, onAction, onOpenDetail, compact, resortProfile }: ServiceOrderCardProps) => {
   const [busy, setBusy] = useState(false);
   const items = (order.items as any[]) || [];
   const isNew = order.status === 'New';
