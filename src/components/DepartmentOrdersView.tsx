@@ -46,7 +46,7 @@ const DepartmentOrdersView = ({ department, embedded = false }: DepartmentOrders
     if (s) return { isAdmin: s.isAdmin || false, permissions: s.permissions || [] as string[] };
     return { isAdmin: false, permissions: [] as string[] };
   })();
-  const canAct = sessionPerms.isAdmin || canEdit(sessionPerms.permissions,  || canManage(sessionPerms.permissions, 'orders')department);
+  const canAct = sessionPerms.isAdmin || canEdit(sessionPerms.permissions, department) || canManage(sessionPerms.permissions, 'orders');
 
   const statusField = department === 'kitchen' ? 'kitchen_status' : 'bar_status';
   const otherStatusField = department === 'kitchen' ? 'bar_status' : 'kitchen_status';

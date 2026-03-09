@@ -55,7 +55,7 @@ const ServiceOrderCard = ({ order, department, permissions, onAction, onOpenDeta
     try { await onAction(order.id, action); } finally { setBusy(false); }
   };
 
-  const canServe = canEdit(permissions, 'reception') || canEdit(permissions, 'kitchen') || canEdit(permissi || canManage(permissions, 'orders')ons, 'bar');
+  const canServe = canEdit(permissions, 'reception') || canEdit(permissions, 'kitchen') || canEdit(permissions, 'bar') || canManage(permissions, 'orders');
 
   // Primary action for current department
   let primaryAction: { label: string; action: string; icon: React.ReactNode } | null = null;
