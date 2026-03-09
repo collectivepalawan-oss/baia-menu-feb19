@@ -15,8 +15,53 @@ const from = (table: string) => supabase.from(table as any);
 const HousekeeperPage = ({ embedded = false }: { embedded?: boolean }) => {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const [acceptingOrderId, setAcceptingOrderId] = useState<string | null>(null);
   const [activeOrder, setActiveOrder] = useState<any>(null);
+
+  // Unlock AudioContext on first interaction (mobile)
+  useEffect(() => {
+    const unlock = () => {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
+    };
+    document.addEventListener('touchstart', unlock, { once: true });
+    document.addEventListener('click', unlock, { once: true });
+    return () => {
+      document.removeEventListener('touchstart', unlock);
+      document.removeEventListener('click', unlock);
+    };
+  }, []);
+
+  const playChime = useCallback(() => {
+    const ctx = audioCtxRef.current;
+    if (!ctx || ctx.state !== 'running') return;
+    const now = ctx.currentTime;
+    const gain = ctx.createGain();
+    gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(520, now);
+    osc.connect(gain);
+    osc.start(now);
+    osc.stop(now + 0.4);
+  }, []);
+
+  // Realtime subscription for new housekeeping orders — play chime on INSERT
+  useEffect(() => {
+    const channel = supabase
+      .channel('housekeeping-orders-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'housekeeping_orders' }, () => {
+        playChime();
+        qc.invalidateQueries({ queryKey: ['housekeeping-orders-all'] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [playChime, qc]);
 
   const empId = localStorage.getItem('emp_id');
   const empName = localStorage.getItem('emp_name') || 'Housekeeper';
