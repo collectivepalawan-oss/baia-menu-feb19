@@ -15,6 +15,7 @@ const OrderType = () => {
 
   const [selectedType, setSelectedType] = useState('');
   const [locationDetail, setLocationDetail] = useState('');
+  const [guestName, setGuestName] = useState('');
 
   const { data: orderTypes = [] } = useQuery({
     queryKey: ['order-types'],
@@ -52,6 +53,7 @@ const OrderType = () => {
   const handleProceed = () => {
     if (!canProceed) return;
     const params = new URLSearchParams({ mode, orderType: selectedType, location: locationDetail });
+    if (guestName.trim()) params.set('guestName', guestName.trim());
     navigate(`/menu?${params.toString()}`);
   };
 
@@ -72,7 +74,7 @@ const OrderType = () => {
             {orderTypes.map(ot => (
               <button
                 key={ot.id}
-                onClick={() => { setSelectedType(ot.type_key); setLocationDetail(''); }}
+                onClick={() => { setSelectedType(ot.type_key); setLocationDetail(''); setGuestName(''); }}
                 className={`min-h-[48px] py-3 border font-display text-sm tracking-wider transition-colors ${
                   selectedType === ot.type_key
                     ? 'border-gold text-foreground bg-foreground/5'
@@ -101,12 +103,20 @@ const OrderType = () => {
           )}
 
           {activeOrderType && activeOrderType.input_mode === 'text' && (
-            <Input
-              placeholder={activeOrderType.placeholder || 'Enter details'}
-              value={locationDetail}
-              onChange={(e) => setLocationDetail(e.target.value)}
-              className="bg-secondary border-border text-foreground font-body"
-            />
+            <div className="space-y-3">
+              <Input
+                placeholder={activeOrderType.placeholder || 'Table # or location'}
+                value={locationDetail}
+                onChange={(e) => setLocationDetail(e.target.value)}
+                className="bg-secondary border-border text-foreground font-body"
+              />
+              <Input
+                placeholder="Guest name (optional)"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                className="bg-secondary border-border text-foreground font-body"
+              />
+            </div>
           )}
 
           <Button

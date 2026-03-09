@@ -30,6 +30,7 @@ const MenuPage = () => {
   const mode = searchParams.get('mode') || 'guest';
   const orderType = searchParams.get('orderType') || '';
   const location = searchParams.get('location') || '';
+  const initialGuestName = searchParams.get('guestName') || '';
   const isStaff = mode === 'staff';
   const isGuestOrder = mode === 'guest-order';
   const isBrowseOnly = mode === 'guest';
@@ -356,6 +357,7 @@ const MenuPage = () => {
         mode={mode}
         orderType={isGuestOrder && guestSession ? 'Room' : orderType}
         locationDetail={isGuestOrder && guestSession ? guestSession.room_name : location}
+        initialGuestName={isGuestOrder && guestSession ? guestSession.guest_name : initialGuestName}
       />
 
       {/* Bottom nav bar - staff only */}

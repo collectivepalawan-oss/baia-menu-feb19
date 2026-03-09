@@ -73,9 +73,10 @@ interface CartDrawerProps {
   mode: string;
   orderType: string;
   locationDetail: string;
+  initialGuestName?: string;
 }
 
-const CartDrawer = ({ open, onOpenChange, mode, orderType: initialOrderType, locationDetail: initialLocation }: CartDrawerProps) => {
+const CartDrawer = ({ open, onOpenChange, mode, orderType: initialOrderType, locationDetail: initialLocation, initialGuestName = '' }: CartDrawerProps) => {
   const cart = useCart();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -129,8 +130,8 @@ const CartDrawer = ({ open, onOpenChange, mode, orderType: initialOrderType, loc
   const vatAmount = Math.round(subtotal * (vatRate / 100));
   const grandTotal = subtotal + serviceCharge + vatAmount;
 
-  // Guest name for room orders
-  const [guestName, setGuestName] = useState('');
+  // Guest name for orders
+  const [guestName, setGuestName] = useState(initialGuestName);
 
   // Fetch order types for guest selection
   const { data: orderTypes = [] } = useQuery({
@@ -565,10 +566,10 @@ const CartDrawer = ({ open, onOpenChange, mode, orderType: initialOrderType, loc
                     </div>
                   )}
 
-                  {/* Guest name for Room orders (not for guest-order mode - auto-filled) */}
-                  {selectedOrderType === 'Room' && !isGuestOrder && (
+                  {/* Guest name for Room, WalkIn, DineIn orders (not for guest-order mode - auto-filled) */}
+                  {(selectedOrderType === 'Room' || selectedOrderType === 'WalkIn' || selectedOrderType === 'DineIn') && !isGuestOrder && (
                     <div className="mt-3">
-                      <label className="font-body text-xs text-cream-dim">Guest Name</label>
+                      <label className="font-body text-xs text-cream-dim">Guest Name (optional)</label>
                       <Input value={guestName} onChange={e => setGuestName(e.target.value)}
                         placeholder="Guest name" className="bg-secondary border-border text-foreground font-body mt-1" />
                     </div>
