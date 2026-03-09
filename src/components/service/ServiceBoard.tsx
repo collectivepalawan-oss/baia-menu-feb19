@@ -164,7 +164,7 @@ const ServiceBoard = ({ department }: ServiceBoardProps) => {
       updateData.kitchen_status = 'ready';
       const barItems = ((order.items as any[]) || []).some((i: any) => i.department === 'bar' || i.department === 'both');
       if (!barItems || order.bar_status === 'ready') {
-        updateData.status = 'Served';
+        updateData.status = 'Ready';
       }
     } else if (action === 'bar-start') {
       updateData.bar_status = 'preparing';
