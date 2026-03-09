@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import {
   DollarSign, RefreshCw, LogOut, UtensilsCrossed, MapPin, Bike, Truck,
-  Trash2, Gift, FileText, CreditCard, Palmtree,
+  Trash2, Gift, FileText, CreditCard, Palmtree, CheckCircle,
 } from 'lucide-react';
 import AddPaymentModal from './AddPaymentModal';
 import AdjustmentModal from './AdjustmentModal';
@@ -33,18 +33,18 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
   const [showAdjustment, setShowAdjustment] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
 
-  // ── Unpaid F&B orders for this room ──
-  const { data: unpaidOrders = [] } = useQuery({
-    queryKey: ['billing-unpaid-orders', unit?.id, unit?.name, booking?.id],
+  // ── ALL F&B orders for this room (including Paid) ──
+  const { data: roomOrders = [] } = useQuery({
+    queryKey: ['billing-room-orders', unit?.id, unit?.name, booking?.id],
     enabled: !!unit,
     refetchInterval: 10000,
     queryFn: async () => {
       const { data: byRoom } = await supabase.from('orders').select('*')
-        .eq('room_id', unit.id).in('status', ['New', 'Preparing', 'Ready', 'Served'])
+        .eq('room_id', unit.id).in('status', ['New', 'Preparing', 'Ready', 'Served', 'Paid'])
         .order('created_at', { ascending: false });
       const { data: byLocation } = await supabase.from('orders').select('*')
         .is('room_id', null).eq('location_detail', unit.name)
-        .in('status', ['New', 'Preparing', 'Ready', 'Served'])
+        .in('status', ['New', 'Preparing', 'Ready', 'Served', 'Paid'])
         .order('created_at', { ascending: false });
       const map = new Map<string, any>();
       for (const o of [...(byRoom || []), ...(byLocation || [])]) map.set(o.id, o);
@@ -61,12 +61,15 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
     },
   });
 
+  const unpaidOrders = roomOrders.filter(o => o.status !== 'Paid');
+  const paidOrders = roomOrders.filter(o => o.status === 'Paid');
+
   // ── Realtime subscription for orders ──
   useEffect(() => {
     if (!unit) return;
     const channel = supabase.channel(`billing-orders-${unit.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        qc.invalidateQueries({ queryKey: ['billing-unpaid-orders', unit.id, unit.name, booking?.id] });
+        qc.invalidateQueries({ queryKey: ['billing-room-orders', unit.id, unit.name, booking?.id] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -110,14 +113,14 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
   const handleCompOrder = async (orderId: string) => {
     await supabase.from('orders').update({ status: 'Paid', payment_type: 'Comp' }).eq('id', orderId);
     await logAudit('updated', 'orders', orderId, `Comped order by ${staffName}`);
-    qc.invalidateQueries({ queryKey: ['billing-unpaid-orders'] });
+    qc.invalidateQueries({ queryKey: ['billing-room-orders'] });
     toast.success('Order comped');
   };
 
   const handleDeleteOrder = async (orderId: string) => {
     await supabase.from('orders').delete().eq('id', orderId);
     await logAudit('deleted', 'orders', orderId, `Deleted order by ${staffName}`);
-    qc.invalidateQueries({ queryKey: ['billing-unpaid-orders'] });
+    qc.invalidateQueries({ queryKey: ['billing-room-orders'] });
     toast.success('Order deleted');
   };
 
@@ -149,7 +152,7 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
 
   const refreshAll = () => {
     refetch();
-    qc.invalidateQueries({ queryKey: ['billing-unpaid-orders'] });
+    qc.invalidateQueries({ queryKey: ['billing-room-orders'] });
     qc.invalidateQueries({ queryKey: ['billing-tours'] });
     qc.invalidateQueries({ queryKey: ['billing-requests'] });
   };
@@ -160,6 +163,7 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
       case 'Preparing': return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
       case 'Ready': return 'bg-green-500/20 text-green-300 border-green-500/30';
       case 'Served': return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+      case 'Paid': return 'bg-muted text-muted-foreground border-muted';
       default: return 'bg-muted text-muted-foreground';
     }
   };
@@ -225,11 +229,11 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
 
       <Separator />
 
-      {/* ═══ SECTION: Unpaid F&B Orders ═══ */}
+      {/* ═══ SECTION: Active F&B Orders ═══ */}
       {unpaidOrders.length > 0 && (
         <div className="space-y-2">
           <p className="font-display text-xs tracking-wider text-muted-foreground uppercase flex items-center gap-1.5">
-            <UtensilsCrossed className="w-3.5 h-3.5" /> F&B Orders
+            <UtensilsCrossed className="w-3.5 h-3.5" /> Active F&B Orders
           </p>
           {unpaidOrders.map(o => {
             const items = Array.isArray(o.items) ? o.items : [];
@@ -263,6 +267,36 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
                     </div>
                   )}
                 </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ═══ SECTION: Paid F&B Orders ═══ */}
+      {paidOrders.length > 0 && (
+        <div className="space-y-2">
+          <p className="font-display text-xs tracking-wider text-muted-foreground uppercase flex items-center gap-1.5">
+            <CheckCircle className="w-3.5 h-3.5" /> Paid F&B Orders
+          </p>
+          {paidOrders.map(o => {
+            const items = Array.isArray(o.items) ? o.items : [];
+            const isChargedToRoom = o.payment_type === 'Charge to Room';
+            return (
+              <div key={o.id} className="border border-border/40 rounded-lg p-3 space-y-1.5 opacity-70">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-body text-xs text-muted-foreground">
+                    {format(new Date(o.created_at), 'MMM d h:mma')} · {o.staff_name || '—'}
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Badge variant="outline" className="text-[10px] bg-emerald-500/20 text-emerald-300 border-emerald-500/30">Paid</Badge>
+                    {isChargedToRoom && <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">Room</Badge>}
+                  </div>
+                </div>
+                <p className="font-body text-xs text-foreground">
+                  {items.map((i: any) => `${i.qty || 1}× ${i.name}`).join(', ')}
+                </p>
+                <span className="font-display text-sm text-muted-foreground">₱{Number(o.total).toLocaleString()}</span>
               </div>
             );
           })}

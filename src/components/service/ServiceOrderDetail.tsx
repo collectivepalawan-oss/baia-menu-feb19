@@ -5,7 +5,7 @@ import { Separator } from '@/components/ui/separator';
 import { format } from 'date-fns';
 import { Flame, GlassWater, Truck, CreditCard, Clock, CheckCircle2, Home, Receipt, Info, FileText, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
-import { canEdit } from '@/lib/permissions';
+import { canEdit, canManage } from '@/lib/permissions';
 import { generateInvoicePdf, buildInvoiceWhatsAppText } from '@/lib/generateInvoicePdf';
 import type { ResortProfile } from '@/hooks/useResortProfile';
 
@@ -64,6 +64,8 @@ const ServiceOrderDetail = ({ order, open, onOpenChange, permissions, onAction, 
     }
   }
 
+  const canMarkPaid = canEdit(permissions, 'reception') || canManage(permissions, 'orders');
+
   if (canServe) {
     if (order.status === 'Ready') {
       actions.push({
@@ -73,9 +75,9 @@ const ServiceOrderDetail = ({ order, open, onOpenChange, permissions, onAction, 
         variant: 'default',
       });
     }
-    if (order.status === 'Served' && !isAutoPayable) {
-      actions.push({ label: 'Mark Paid', action: 'mark-paid', icon: <CreditCard className="w-5 h-5" />, variant: 'default' });
-    }
+  }
+  if (canMarkPaid && order.status === 'Served' && !isAutoPayable) {
+    actions.push({ label: 'Mark Paid', action: 'mark-paid', icon: <CreditCard className="w-5 h-5" />, variant: 'default' });
   }
 
   const showInvoice = !isAutoPayable && (order.status === 'Served' || order.status === 'Paid');

@@ -33,17 +33,17 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
   const [submitting, setSubmitting] = useState(false);
   const [selectedHousekeeper, setSelectedHousekeeper] = useState('');
 
-  // Fetch unpaid orders for this room (Served status, not charged to room)
+  // Fetch all non-paid orders for this room (to be settled at checkout)
   const { data: unpaidOrders = [], refetch: refetchUnpaid } = useQuery({
     queryKey: ['checkout-unpaid-orders', unitId],
     enabled: open && !!unitId,
     queryFn: async () => {
       const { data } = await supabase
         .from('orders')
-        .select('id, total, guest_name, status, payment_type, created_at')
+        .select('id, total, guest_name, status, payment_type, created_at, items')
         .eq('room_id', unitId)
-        .eq('status', 'Served')
-        .neq('payment_type', 'Charge to Room');
+        .in('status', ['New', 'Preparing', 'Ready', 'Served'])
+        .order('created_at', { ascending: false });
       return data || [];
     },
   });
@@ -72,17 +72,10 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
   const payments = transactions.filter(t => t.total_amount < 0);
   const totalCharges = charges.reduce((s, t) => s + t.total_amount, 0);
   const totalPayments = Math.abs(payments.reduce((s, t) => s + t.total_amount, 0));
-  const balance = totalCharges - totalPayments;
+  const balance = totalCharges - totalPayments + unpaidTotal;
 
   const nights = booking ? Math.max(1, Math.ceil((new Date(booking.check_out).getTime() - new Date(booking.check_in).getTime()) / 86400000)) : 0;
   const roomRate = booking ? Number(booking.room_rate) : 0;
-
-  const markOrderPaid = async (orderId: string) => {
-    await supabase.from('orders').update({ status: 'Paid', closed_at: new Date().toISOString() }).eq('id', orderId);
-    refetchUnpaid();
-    qc.invalidateQueries({ queryKey: ['service-orders'] });
-    toast.success('Order marked as paid');
-  };
 
   const handleCheckout = async () => {
     setSubmitting(true);
@@ -103,6 +96,14 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
           staff_name: localStorage.getItem('emp_name') || 'Staff',
           notes: 'Final checkout payment',
         });
+      }
+
+      // Batch-settle ALL unpaid room orders
+      if (unpaidOrders.length > 0) {
+        const orderIds = unpaidOrders.map((o: any) => o.id);
+        await supabase.from('orders')
+          .update({ status: 'Paid', closed_at: new Date().toISOString() })
+          .in('id', orderIds);
       }
 
       if (bookingId) {
@@ -161,6 +162,8 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
       await logAudit('updated', 'units', unitId, `Checkout completed for ${guestName || 'Guest'} in ${unitName}${hkEmployee ? ` — assigned to ${hkEmployee.display_name || hkEmployee.name}` : ''}`);
 
       qc.invalidateQueries({ queryKey: ['room-transactions', unitId] });
+      qc.invalidateQueries({ queryKey: ['billing-room-orders'] });
+      qc.invalidateQueries({ queryKey: ['service-orders'] });
       qc.invalidateQueries({ queryKey: ['rooms-bookings'] });
       qc.invalidateQueries({ queryKey: ['rooms-units'] });
       qc.invalidateQueries({ queryKey: ['housekeeping-orders'] });
@@ -186,24 +189,27 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
           <DialogTitle className="font-display tracking-wider">Checkout — {unitName}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          {/* Unpaid F&B Orders Warning */}
+          {/* Unpaid F&B Orders — included in final settlement */}
           {unpaidOrders.length > 0 && (
-            <div className="border border-destructive/50 bg-destructive/10 rounded-lg p-3 space-y-2">
-              <p className="font-display text-xs tracking-wider text-destructive uppercase flex items-center gap-1">
-                ⚠️ {unpaidOrders.length} Unpaid Order{unpaidOrders.length > 1 ? 's' : ''} — ₱{unpaidTotal.toLocaleString()}
+            <div className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-3 space-y-2">
+              <p className="font-display text-xs tracking-wider text-amber-400 uppercase flex items-center gap-1">
+                🍽 {unpaidOrders.length} Unsettled Order{unpaidOrders.length > 1 ? 's' : ''} — ₱{unpaidTotal.toLocaleString()}
               </p>
-              <p className="font-body text-xs text-muted-foreground">These orders must be paid before checkout.</p>
-              {unpaidOrders.map((o: any) => (
-                <div key={o.id} className="flex justify-between items-center bg-secondary/50 rounded p-2">
-                  <div>
-                    <p className="font-body text-xs text-foreground">F&B Order — ₱{(o.total || 0).toLocaleString()}</p>
-                    <p className="font-body text-[10px] text-muted-foreground">{new Date(o.created_at).toLocaleString()}</p>
+              <p className="font-body text-xs text-muted-foreground">These will be settled automatically at checkout.</p>
+              {unpaidOrders.map((o: any) => {
+                const items = Array.isArray(o.items) ? o.items : [];
+                return (
+                  <div key={o.id} className="flex justify-between items-center bg-secondary/50 rounded p-2">
+                    <div>
+                      <p className="font-body text-xs text-foreground">
+                        {items.map((i: any) => `${i.qty || 1}× ${i.name}`).join(', ') || 'F&B Order'}
+                      </p>
+                      <p className="font-body text-[10px] text-muted-foreground">{new Date(o.created_at).toLocaleString()}</p>
+                    </div>
+                    <span className="font-display text-xs text-foreground">₱{(o.total || 0).toLocaleString()}</span>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => markOrderPaid(o.id)} className="font-display text-[10px] tracking-wider h-7 px-2">
-                    Mark Paid
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -219,7 +225,7 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
 
           {/* Charges summary */}
           <div className="space-y-1.5">
-            <p className="font-display text-xs tracking-wider text-muted-foreground uppercase">Charges</p>
+            <p className="font-display text-xs tracking-wider text-muted-foreground uppercase">Room Charges</p>
             {charges.map(t => (
               <div key={t.id} className="flex justify-between font-body text-sm">
                 <span className="text-muted-foreground truncate flex-1">{t.notes || t.transaction_type}</span>
@@ -227,12 +233,20 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
               </div>
             ))}
             <div className="flex justify-between font-display text-sm">
-              <span className="text-foreground">Total Charges</span>
+              <span className="text-foreground">Subtotal (Room)</span>
               <span className="text-foreground">₱{totalCharges.toLocaleString()}</span>
             </div>
           </div>
 
-          <Separator />
+          {unpaidTotal > 0 && (
+            <>
+              <Separator />
+              <div className="flex justify-between font-display text-sm">
+                <span className="text-amber-400">Unsettled F&B</span>
+                <span className="text-amber-400">₱{unpaidTotal.toLocaleString()}</span>
+              </div>
+            </>
+          )}
 
           {/* Payments received */}
           <div className="space-y-1.5">
@@ -307,11 +321,11 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
           <Button variant="outline" onClick={() => onOpenChange(false)} className="font-display text-xs tracking-wider">Cancel</Button>
           <Button 
             onClick={handleCheckout} 
-            disabled={submitting || unpaidOrders.length > 0} 
+            disabled={submitting} 
             variant="destructive" 
             className="font-display text-xs tracking-wider"
           >
-            {submitting ? 'Processing...' : unpaidOrders.length > 0 ? 'Settle Orders First' : 'Confirm Checkout'}
+            {submitting ? 'Processing...' : 'Confirm Checkout'}
           </Button>
         </DialogFooter>
       </DialogContent>
