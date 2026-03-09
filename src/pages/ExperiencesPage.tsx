@@ -235,10 +235,13 @@ const ExperiencesPage = ({ embedded = false }: { embedded?: boolean }) => {
   };
 
   const getRequestIcon = (type: string) => {
-    if (type?.toLowerCase().includes('transport')) return <Car className="w-3.5 h-3.5 text-primary" />;
-    if (type?.toLowerCase().includes('rent') || type?.toLowerCase().includes('scooter') || type?.toLowerCase().includes('bike'))
+    const t = type?.toLowerCase() || '';
+    if (t.includes('transport')) return <Car className="w-3.5 h-3.5 text-primary" />;
+    if (t.includes('rent') || t.includes('scooter') || t.includes('bike'))
       return <Bike className="w-3.5 h-3.5 text-primary" />;
-    return <Palmtree className="w-3.5 h-3.5 text-primary" />;
+    if (t.includes('message')) return <MessageCircle className="w-3.5 h-3.5 text-primary" />;
+    if (t.includes('towel') || t.includes('linen')) return <Droplets className="w-3.5 h-3.5 text-primary" />;
+    return <ConciergeBell className="w-3.5 h-3.5 text-primary" />;
   };
 
   return (

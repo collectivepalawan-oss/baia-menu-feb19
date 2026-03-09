@@ -989,6 +989,13 @@ const AdminPage = () => {
             </TabsContent>
           )}
 
+          {/* GUEST SERVICES TAB */}
+          {(isAdmin || hasAccess(perms, 'experiences') || hasAccess(perms, 'reception')) && (
+            <TabsContent value="guest-services">
+              <ExperiencesPage embedded />
+            </TabsContent>
+          )}
+
           {/* RESORT OPS TAB */}
           {(isAdmin || hasAccess(perms, 'resort_ops')) && (
             <TabsContent value="resort-ops">
