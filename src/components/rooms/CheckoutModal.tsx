@@ -33,17 +33,17 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
   const [submitting, setSubmitting] = useState(false);
   const [selectedHousekeeper, setSelectedHousekeeper] = useState('');
 
-  // Fetch unpaid orders for this room (Served status, not charged to room)
+  // Fetch all non-paid orders for this room (to be settled at checkout)
   const { data: unpaidOrders = [], refetch: refetchUnpaid } = useQuery({
     queryKey: ['checkout-unpaid-orders', unitId],
     enabled: open && !!unitId,
     queryFn: async () => {
       const { data } = await supabase
         .from('orders')
-        .select('id, total, guest_name, status, payment_type, created_at')
+        .select('id, total, guest_name, status, payment_type, created_at, items')
         .eq('room_id', unitId)
-        .eq('status', 'Served')
-        .neq('payment_type', 'Charge to Room');
+        .in('status', ['New', 'Preparing', 'Ready', 'Served'])
+        .order('created_at', { ascending: false });
       return data || [];
     },
   });
