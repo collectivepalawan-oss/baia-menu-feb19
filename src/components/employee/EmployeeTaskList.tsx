@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 import { sendMessengerMessage, openWhatsApp } from '@/lib/messenger';
 import { useResortProfile } from '@/hooks/useResortProfile';
 import TaskCompletionPanel from './TaskCompletionPanel';
-import TaskDetailsModal from './TaskDetailsModal';
+import TaskDetailSheet from './TaskDetailSheet';
 
 interface Props {
   employeeId?: string;
