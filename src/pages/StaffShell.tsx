@@ -47,7 +47,7 @@ const StaffShell = () => {
   return (
     <div className="min-h-screen bg-navy-texture overflow-x-hidden">
       {/* Global navigation bar */}
-      <StaffNavBar activeDepartment={activeRole} />
+      <StaffNavBar />
 
       <div className="max-w-2xl mx-auto px-4 pb-4">
 
