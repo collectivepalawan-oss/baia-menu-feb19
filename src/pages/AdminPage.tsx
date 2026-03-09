@@ -443,6 +443,10 @@ const AdminPage = () => {
       order_type: addingToOrder.order_type,
       location_detail: addingToOrder.location_detail,
       tab_id: addingToOrder.tab_id,
+      room_id: addingToOrder.room_id || null,
+      guest_name: addingToOrder.guest_name || '',
+      staff_name: addingToOrder.staff_name || localStorage.getItem('emp_name') || '',
+      payment_type: addingToOrder.payment_type || '',
     });
     qc.invalidateQueries({ queryKey: ['orders-admin'] });
     setAddingToOrder(null);
