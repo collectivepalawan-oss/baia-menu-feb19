@@ -1,37 +1,79 @@
 
 
-## Plan: Fix Schedule Delete & Enhance Task/Assignment Scheduling
+## Making Service Boards Interactive Across Departments
 
-### Issues Found
+### Problem
+Currently each service screen is rigidly siloed: Kitchen can only do "Start Preparing" / "Mark Ready" for food, Bar only for drinks, Reception only "Mark Served" / "Mark Paid". A chef who sees a drink order can't help. Reception can't kick off a food order during a rush. There's no way to view order details, add notes, or see the full order context.
 
-1. **Delete button bug**: The trash icon on shift blocks triggers `setDeleteId(s.id)`, but the parent div's `onClick={() => openEdit(s)}` fires simultaneously despite `stopPropagation`. On mobile, the tiny button (3x3 icon) is nearly impossible to tap. The AlertDialog `onOpenChange={() => setDeleteId(null)}` also races with the confirm action.
+### Solution
+Give every service screen cross-department action buttons based on the logged-in staff member's permissions, plus add interactive features (order detail drawer, item-level status, quick notes).
 
-2. **Missing scheduling features**: The schedule only manages time shifts. There's no way to assign tasks like housecleaning, reception duty, or track completion from within the schedule view.
+---
 
 ### Changes
 
-**1. Fix Delete Button** (`WeeklyScheduleManager.tsx`)
-- Make `confirmDelete` capture `deleteId` before the dialog closes by saving it in a ref or local variable
-- Increase touch target size for edit/delete buttons on shift blocks
-- Prevent edit modal from opening when clicking edit/delete icons (the `stopPropagation` exists but the parent click handler on the entire timeline area also fires)
+**1. `src/components/service/ServiceOrderCard.tsx` — Cross-department actions**
 
-**2. Add Task/Assignment Creation from Schedule** (`WeeklyScheduleManager.tsx`)
-- Add an "Assign Task" button alongside "Add Shift" 
-- New modal to create a task assignment: select employee, pick type (Housecleaning, Reception, Custom), set date/time, add notes
-- For housecleaning: select a room/unit to clean, auto-creates a `housekeeping_orders` entry assigned to the selected employee
-- For other tasks: creates an `employee_tasks` entry with due date and description
-- Tasks appear as colored pills on the timeline (already partially implemented)
+Currently the action button logic is a single `if/else if` chain locked to `department`. Replace with a multi-action approach:
 
-**3. Show Completion Info on Task Detail** (`WeeklyScheduleManager.tsx`)
-- In the task detail dialog, show who completed the task and when (`completed_at`)
-- For housekeeping pills, show completion status (`cleaning_completed_at`, `completed_by_name`)
-- Make housekeeping pills clickable to show full details (room, status, who inspected/cleaned)
+- Show the **primary action** for the current department (unchanged behavior)
+- Add **secondary action buttons** for other departments when the staff member has those permissions (read from `staff_home_session`)
+- Example: Kitchen screen shows "Start Preparing" as primary, but also shows a smaller "Mark Served" button if the chef has reception permission
+- Action buttons rendered as a button group: primary (large, colored) + secondary (small, outline)
+- Add a "tap to expand" detail view showing all items, notes, and order timeline
 
-**4. Enhance Task Detail Dialog** (`WeeklyScheduleManager.tsx`)
-- Add edit capability: change title, description, due date, reassign to different employee
-- Add delete capability for tasks
-- Show completion audit trail
+**2. `src/components/service/ServiceOrderDetail.tsx` — New file: Order detail drawer**
 
-### Files to Edit
-- `src/components/admin/WeeklyScheduleManager.tsx` — all changes in this single file
+A bottom-sheet (Drawer) that opens when tapping an order card. Shows:
+- Full item list with per-item department badges (🍳 Kitchen / 🍹 Bar)
+- Per-department status indicators (kitchen_status, bar_status)
+- Order timeline: created → preparing → ready → served
+- Guest name, location, order type
+- **All available actions** as full-width buttons (regardless of current screen department), gated by the user's permissions
+- Quick note input to add a note to the order (stored in `items` JSONB as `order_note` field — no schema change)
+
+**3. `src/components/service/ServiceBoard.tsx` — Pass permissions down**
+
+- Read `staff_home_session` from sessionStorage to get the staff member's permissions
+- Pass `permissions: string[]` to `ServiceOrderCard`
+- Pass `onOpenDetail` callback to cards so tapping opens the detail drawer
+
+**4. `src/components/service/ServiceOrderCard.tsx` — Enhanced card display**
+
+- Add item count summary badges (e.g., "3 food · 2 drinks")
+- Show per-department status dots (green = ready, orange = preparing, gray = pending) on every card regardless of department
+- Add tap handler to open detail drawer
+- Keep existing primary action button but make it contextual to permissions, not just department
+
+**5. Action Button Logic (in ServiceOrderCard)**
+
+New logic replaces the rigid department check:
+
+```
+Available actions computed from order state + user permissions:
+- Has 'kitchen' perm + kitchen_status=pending → "Start Preparing" (kitchen)
+- Has 'kitchen' perm + kitchen_status=preparing → "Mark Ready" (kitchen)
+- Has 'bar' perm + bar_status=pending → "Start Mixing" (bar)
+- Has 'bar' perm + bar_status=preparing → "Mark Ready" (bar)
+- Has 'reception' perm + all depts ready → "Mark Served"
+- Has 'reception' perm + status=Served → "Mark Paid"
+```
+
+The **primary** action shown on the card is the one matching the current screen's department. Secondary actions appear in the detail drawer.
+
+**6. Service pages (ServiceKitchenPage, ServiceBarPage, ServiceReceptionPage) — No changes**
+
+They just pass `department` prop. The interactivity comes from the shared components.
+
+---
+
+### File Summary
+
+```
+NEW:  src/components/service/ServiceOrderDetail.tsx  — order detail drawer
+EDIT: src/components/service/ServiceOrderCard.tsx     — multi-action buttons, permission-aware, tap to detail
+EDIT: src/components/service/ServiceBoard.tsx          — pass permissions + detail drawer state
+```
+
+No database changes. No routing changes. Existing functionality preserved — this only adds more action buttons and the detail drawer.
 
