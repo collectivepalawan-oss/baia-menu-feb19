@@ -290,12 +290,13 @@ const ServiceBoard = ({ department }: ServiceBoardProps) => {
 };
 
 /** Mobile tab-based view for phones */
-const MobileTabView = ({ columns, department, permissions, onAction, onOpenDetail }: {
+const MobileTabView = ({ columns, department, permissions, onAction, onOpenDetail, resortProfile }: {
   columns: Record<string, any[]>;
   department: 'kitchen' | 'bar' | 'reception';
   permissions: string[];
   onAction: (orderId: string, action: string) => Promise<void>;
   onOpenDetail: (order: any) => void;
+  resortProfile?: any;
 }) => {
   const [tab, setTab] = useState<string>('New');
 
