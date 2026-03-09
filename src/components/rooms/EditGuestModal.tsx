@@ -126,9 +126,9 @@ const EditGuestModal = ({ open, onOpenChange, guest, booking }: EditGuestModalPr
 
           {/* VIP toggle */}
           <div className="flex items-center gap-2">
-            <button
+          <button
               onClick={() => setIsVip(v => !v)}
-              className={`w-10 h-5 rounded-full transition-colors relative ${isVip ? 'bg-amber-500' : 'bg-secondary border border-border'}`}>
+              className={`w-10 h-5 rounded-full transition-colors relative border ${isVip ? 'bg-primary border-primary' : 'bg-secondary border-border'}`}>
               <span className={`absolute top-0.5 w-4 h-4 bg-card rounded-full transition-transform shadow ${isVip ? 'left-5' : 'left-0.5'}`} />
             </button>
             <span className="font-body text-xs text-muted-foreground">Mark as VIP ⭐</span>
