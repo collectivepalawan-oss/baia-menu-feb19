@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { hasAccess } from '@/lib/permissions';
+import { getStaffSession } from '@/lib/session';
 import ReceptionHome from '@/components/staff/ReceptionHome';
 import HousekeepingHome from '@/components/staff/HousekeepingHome';
 import KitchenHome from '@/components/staff/KitchenHome';
@@ -9,19 +10,6 @@ import ExperiencesHome from '@/components/staff/ExperiencesHome';
 import StaffOrderHome from '@/components/staff/StaffOrderHome';
 import ActionRequiredPanel from '@/components/staff/ActionRequiredPanel';
 import StaffNavBar from '@/components/StaffNavBar';
-
-const SESSION_KEY = 'staff_home_session';
-
-const getSession = () => {
-  try {
-    const stored = sessionStorage.getItem(SESSION_KEY);
-    if (stored) {
-      const s = JSON.parse(stored);
-      if (s.expiresAt > Date.now()) return s;
-    }
-  } catch {}
-  return null;
-};
 
 interface RoleDef {
   key: string;
