@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { Home, LogOut } from 'lucide-react';
 import { deductInventoryForOrder } from '@/lib/inventoryDeduction';
 import { canEdit } from '@/lib/permissions';
+import { getStaffSession, clearStaffSession } from '@/lib/session';
 
 interface DepartmentOrdersViewProps {
   department: 'kitchen' | 'bar';
