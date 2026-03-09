@@ -162,6 +162,8 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
       await logAudit('updated', 'units', unitId, `Checkout completed for ${guestName || 'Guest'} in ${unitName}${hkEmployee ? ` — assigned to ${hkEmployee.display_name || hkEmployee.name}` : ''}`);
 
       qc.invalidateQueries({ queryKey: ['room-transactions', unitId] });
+      qc.invalidateQueries({ queryKey: ['billing-room-orders'] });
+      qc.invalidateQueries({ queryKey: ['service-orders'] });
       qc.invalidateQueries({ queryKey: ['rooms-bookings'] });
       qc.invalidateQueries({ queryKey: ['rooms-units'] });
       qc.invalidateQueries({ queryKey: ['housekeeping-orders'] });

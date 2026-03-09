@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import {
   DollarSign, RefreshCw, LogOut, UtensilsCrossed, MapPin, Bike, Truck,
-  Trash2, Gift, FileText, CreditCard, Palmtree,
+  Trash2, Gift, FileText, CreditCard, Palmtree, CheckCircle,
 } from 'lucide-react';
 import AddPaymentModal from './AddPaymentModal';
 import AdjustmentModal from './AdjustmentModal';
