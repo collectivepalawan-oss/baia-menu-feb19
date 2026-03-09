@@ -117,8 +117,8 @@ const ServiceBoard = ({ department }: ServiceBoardProps) => {
         const deptStatus = o[field] as string;
         if (deptStatus === 'pending' && (o.status === 'New' || o.status === 'Preparing')) cols.New.push(o);
         else if (deptStatus === 'preparing') cols.Preparing.push(o);
-        else if (deptStatus === 'ready' && o.status !== 'Paid') cols.Ready.push(o);
-        else if (o.status === 'Served') cols.Served.push(o);
+        else if (o.status === 'Served' || o.status === 'Paid') cols.Served.push(o);
+        else if (deptStatus === 'ready') cols.Ready.push(o);
       });
     } else {
       relevantOrders.forEach(o => {
