@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Plus, Minus } from 'lucide-react';
 import TabInvoice from '@/components/admin/TabInvoice';
 import { deductInventoryForOrder } from '@/lib/inventoryDeduction';
+import { getStaffSession } from '@/lib/session';
+import { canManage, canEdit } from '@/lib/permissions';
 
 const STATUSES = ['New', 'Preparing', 'Served', 'Paid'];
 
