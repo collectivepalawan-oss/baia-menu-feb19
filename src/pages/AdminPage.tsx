@@ -333,6 +333,17 @@ const AdminPage = () => {
   const [activeStatus, setActiveStatus] = useState('New');
   const [ordersSubView, setOrdersSubView] = useState<'pipeline' | 'tabs'>('pipeline');
   const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
+
+  const deleteAllOrders = async () => {
+    const { error } = await supabase.from('orders').delete().neq('id', '');
+    if (error) { toast.error('Failed to delete orders'); return; }
+    qc.invalidateQueries({ queryKey: ['orders-admin'] });
+    toast.success('All orders deleted');
+    setConfirmDeleteAll(false);
+    const { logAudit } = await import('@/lib/auditLog');
+    logAudit('deleted', 'orders', 'ALL', 'Bulk delete all orders');
+  };
   const filteredOrders = useMemo(() => {
     let filtered = orders;
     const now = new Date();
