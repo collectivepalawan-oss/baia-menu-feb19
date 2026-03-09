@@ -6,26 +6,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/s
 import { hasAccess } from '@/lib/permissions';
 import { getHomeRoute } from '@/lib/getHomeRoute';
 import { Badge } from '@/components/ui/badge';
-
-const SESSION_KEY = 'staff_home_session';
-
-interface Session {
-  name: string;
-  employeeId: string;
-  permissions: string[];
-  expiresAt: number;
-}
-
-const getSession = (): Session | null => {
-  try {
-    const stored = sessionStorage.getItem(SESSION_KEY);
-    if (stored) {
-      const s = JSON.parse(stored);
-      if (s.expiresAt > Date.now()) return s;
-    }
-  } catch {}
-  return null;
-};
+import { getStaffSession, clearStaffSession } from '@/lib/session';
 
 /** Color map for department badges — HSL values from design tokens where possible */
 const DEPT_COLORS: Record<string, string> = {
