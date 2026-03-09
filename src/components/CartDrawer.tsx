@@ -565,10 +565,10 @@ const CartDrawer = ({ open, onOpenChange, mode, orderType: initialOrderType, loc
                     </div>
                   )}
 
-                  {/* Guest name for Room orders (not for guest-order mode - auto-filled) */}
-                  {selectedOrderType === 'Room' && !isGuestOrder && (
+                  {/* Guest name for Room, WalkIn, DineIn orders (not for guest-order mode - auto-filled) */}
+                  {(selectedOrderType === 'Room' || selectedOrderType === 'WalkIn' || selectedOrderType === 'DineIn') && !isGuestOrder && (
                     <div className="mt-3">
-                      <label className="font-body text-xs text-cream-dim">Guest Name</label>
+                      <label className="font-body text-xs text-cream-dim">Guest Name (optional)</label>
                       <Input value={guestName} onChange={e => setGuestName(e.target.value)}
                         placeholder="Guest name" className="bg-secondary border-border text-foreground font-body mt-1" />
                     </div>

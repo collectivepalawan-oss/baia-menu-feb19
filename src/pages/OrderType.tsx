@@ -15,6 +15,7 @@ const OrderType = () => {
 
   const [selectedType, setSelectedType] = useState('');
   const [locationDetail, setLocationDetail] = useState('');
+  const [guestName, setGuestName] = useState('');
 
   const { data: orderTypes = [] } = useQuery({
     queryKey: ['order-types'],
