@@ -126,6 +126,19 @@ const HousekeeperPage = ({ embedded = false }: { embedded?: boolean }) => {
   const handleAccept = async (employee: { id: string; name: string; display_name: string }) => {
     if (!acceptingOrderId) return;
     try {
+      // Race condition guard: re-check if already accepted
+      const { data: current } = await from('housekeeping_orders')
+        .select('accepted_by, accepted_by_name')
+        .eq('id', acceptingOrderId)
+        .single() as any;
+
+      if (current?.accepted_by) {
+        toast.error(`Already assigned to ${current.accepted_by_name || 'someone else'}`);
+        qc.invalidateQueries({ queryKey: ['housekeeping-orders-all'] });
+        setAcceptingOrderId(null);
+        return;
+      }
+
       await from('housekeeping_orders').update({
         accepted_by: employee.id,
         accepted_by_name: employee.display_name || employee.name,

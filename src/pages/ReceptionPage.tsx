@@ -109,7 +109,7 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
   const [checkOutPayment, setCheckOutPayment] = useState('');
   const [checkOutAmount, setCheckOutAmount] = useState('');
   const [checkingOut, setCheckingOut] = useState(false);
-  const [checkOutHousekeeper, setCheckOutHousekeeper] = useState('');
+  // checkOutHousekeeper removed — broadcast mode
 
   // Add Payment modal state
   const [paymentUnit, setPaymentUnit] = useState<any>(null);
@@ -585,12 +585,7 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
     }
   };
 
-  // ── SEND TO CLEAN (with housekeeper picker) ──
-  const handleSendToCleanWithPicker = (unit: any) => {
-    setHkTargetUnit(unit);
-    setHkPickerOpen(true);
-  };
-
+  // ── SEND TO CLEAN (broadcast to all housekeepers) ──
   const handleSendToClean = async (unit: any, assignedTo?: string, assignedName?: string) => {
     setSendingClean(unit.id);
     try {
@@ -615,21 +610,11 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
         }).eq('id', existing.id);
       }
 
-      // Send WhatsApp notification to assigned housekeeper
-      if (assignedTo) {
-        const hkEmp = hkEmployeesForCheckout.find((e: any) => e.id === assignedTo);
-        if (hkEmp?.whatsapp_number) {
-          const { openWhatsApp } = await import('@/lib/messenger');
-          const msg = `🧹 *Room ${unit.name} needs cleaning*\n\nAssigned to you by ${staffName}.\n\nPlease start when ready.`;
-          openWhatsApp(hkEmp.whatsapp_number, msg);
-        }
-      }
-
-      await logAudit('updated', 'units', unit.id, `Sent ${unit.name} to clean${assignedName ? ` (assigned: ${assignedName})` : ''}`);
+      await logAudit('updated', 'units', unit.id, `Sent ${unit.name} to clean${assignedName ? ` (assigned: ${assignedName})` : ' (broadcast)'}`);
       qc.invalidateQueries({ queryKey: ['rooms-units'] });
       qc.invalidateQueries({ queryKey: ['housekeeping-orders'] });
       qc.invalidateQueries({ queryKey: ['housekeeping-orders-all'] });
-      toast.success(`${unit.name} assigned to ${assignedName || 'housekeeping'}`);
+      toast.success(`${unit.name} sent to housekeeping${assignedName ? ` (${assignedName})` : ''}`);
     } catch {
       toast.error('Failed to send to clean');
     } finally {
@@ -665,33 +650,17 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
       await supabase.from('units').update({ status: 'to_clean' } as any).eq('id', checkOutUnit.id);
 
       const existing = activeHkOrders.find((o: any) => o.unit_name === checkOutUnit.name);
-      const hkEmp = hkEmployeesForCheckout.find((e: any) => e.id === checkOutHousekeeper);
 
       if (!existing) {
         await from('housekeeping_orders').insert({
           unit_name: checkOutUnit.name,
           room_type_id: (checkOutUnit as any).room_type_id || null,
           status: 'pending_inspection',
-          assigned_to: checkOutHousekeeper || null,
-          accepted_by: checkOutHousekeeper || null,
-          accepted_by_name: hkEmp ? (hkEmp.display_name || hkEmp.name) : '',
-          accepted_at: checkOutHousekeeper ? new Date().toISOString() : null,
+          assigned_to: null,
+          accepted_by: null,
+          accepted_by_name: '',
+          accepted_at: null,
         });
-      } else if (checkOutHousekeeper) {
-        await from('housekeeping_orders').update({
-          assigned_to: checkOutHousekeeper,
-          accepted_by: checkOutHousekeeper,
-          accepted_by_name: hkEmp ? (hkEmp.display_name || hkEmp.name) : '',
-          accepted_at: new Date().toISOString(),
-        }).eq('id', existing.id);
-      }
-
-      // Send WhatsApp notification
-      if (hkEmp && hkEmp.whatsapp_number) {
-        const { openWhatsApp } = await import('@/lib/messenger');
-        const gName = checkOutBooking.resort_ops_guests?.full_name || 'Guest';
-        const msg = `🧹 *Room ${checkOutUnit.name} needs cleaning*\n\nGuest "${gName}" has checked out.\nAssigned to you by ${staffName}.\n\nPlease start when ready.`;
-        openWhatsApp(hkEmp.whatsapp_number, msg);
       }
 
       // Cancel any pending guest requests & tours for this booking
@@ -706,7 +675,7 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
           .eq('status', 'pending');
       }
 
-      await logAudit('updated', 'units', checkOutUnit.id, `Checkout: ${checkOutBooking.resort_ops_guests?.full_name} from ${checkOutUnit.name}${hkEmp ? ` — assigned to ${hkEmp.display_name || hkEmp.name}` : ''}`);
+      await logAudit('updated', 'units', checkOutUnit.id, `Checkout: ${checkOutBooking.resort_ops_guests?.full_name} from ${checkOutUnit.name} — housekeeping broadcast`);
 
       qc.invalidateQueries({ queryKey: ['room-transactions', checkOutUnit.id] });
       qc.invalidateQueries({ queryKey: ['rooms-bookings'] });
@@ -723,8 +692,7 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
       setCheckOutOpen(false);
       setCheckOutBooking(null);
       setCheckOutUnit(null);
-      setCheckOutHousekeeper('');
-      toast.success(`Checkout complete${hkEmp ? ` — ${hkEmp.display_name || hkEmp.name} notified` : ''}`);
+      toast.success('Checkout complete — housekeepers notified');
     } catch {
       toast.error('Checkout failed');
     } finally {
@@ -847,23 +815,11 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
                     className="font-display text-[10px] tracking-wider min-h-[32px]">
                     <Receipt className="w-3 h-3 mr-0.5" /> Bill {billUnitId === unit.id ? <ChevronUp className="w-3 h-3 ml-0.5" /> : <ChevronDown className="w-3 h-3 ml-0.5" />}
                   </Button>
-                   {canDoEdit && hkEmployeesForCheckout.length > 0 && (
-                     <>
-                       {hkEmployeesForCheckout.map((hk: any) => (
-                         <Button key={hk.id} size="sm" variant="outline"
-                           onClick={() => handleSendToClean(unit, hk.id, hk.display_name || hk.name)}
-                           disabled={sendingClean === unit.id}
-                           className="font-display text-[10px] tracking-wider min-h-[32px] border-amber-500/40 text-amber-400 hover:bg-amber-500/10">
-                           <Sparkles className="w-3 h-3 mr-0.5" /> {sendingClean === unit.id ? '...' : (hk.display_name || hk.name)}
-                         </Button>
-                       ))}
-                     </>
-                   )}
-                   {canDoEdit && hkEmployeesForCheckout.length === 0 && (
+                   {canDoEdit && (
                      <Button size="sm" variant="outline" onClick={() => handleSendToClean(unit)}
                        disabled={sendingClean === unit.id}
-                       className="font-display text-[10px] tracking-wider min-h-[32px]">
-                       <Sparkles className="w-3 h-3 mr-0.5" /> {sendingClean === unit.id ? '...' : 'Clean'}
+                       className="font-display text-[10px] tracking-wider min-h-[32px] border-amber-500/40 text-amber-400 hover:bg-amber-500/10">
+                       <Sparkles className="w-3 h-3 mr-0.5" /> {sendingClean === unit.id ? '...' : '🧹 Clean'}
                      </Button>
                    )}
                    <Button size="sm" variant="outline" onClick={() => { setDetailUnit(unit); setDetailSheetOpen(true); }}
@@ -1136,7 +1092,7 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
                       {order.accepted_by_name ? (
                         <p className="font-body text-xs text-foreground">👤 {order.accepted_by_name}</p>
                       ) : (
-                        <p className="font-body text-xs text-amber-400">⚠ Unassigned</p>
+                        <p className="font-body text-xs text-amber-400">⏳ Waiting for acceptance</p>
                       )}
                       <p className="font-body text-[10px] text-muted-foreground flex items-center gap-1">
                         <Clock className="w-3 h-3" /> {timeSince}
@@ -1378,29 +1334,10 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
                       className="bg-secondary border-border text-foreground font-body" />
                   </div>
                 )}
-                {/* Assign Housekeeper */}
-                <div className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-3 space-y-2">
-                  <p className="font-display text-xs tracking-wider text-amber-400 uppercase">🧹 Assign Housekeeper</p>
-                  <Select onValueChange={setCheckOutHousekeeper} value={checkOutHousekeeper}>
-                    <SelectTrigger className="bg-secondary border-border text-foreground font-body">
-                      <SelectValue placeholder="Select housekeeper (optional)" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border">
-                      {hkEmployeesForCheckout.map((e: any) => (
-                        <SelectItem key={e.id} value={e.id} className="text-foreground font-body">
-                          {e.display_name || e.name}{e.whatsapp_number ? ' 📱' : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {checkOutHousekeeper && (() => {
-                    const emp = hkEmployeesForCheckout.find((e: any) => e.id === checkOutHousekeeper);
-                    return emp?.whatsapp_number ? (
-                      <p className="font-body text-xs text-emerald-400">✓ Will notify via WhatsApp on checkout</p>
-                    ) : (
-                      <p className="font-body text-xs text-muted-foreground">No WhatsApp number — assignment only</p>
-                    );
-                  })()}
+                {/* Housekeeping broadcast notice */}
+                <div className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-3">
+                  <p className="font-display text-xs tracking-wider text-amber-400 uppercase">🧹 Housekeeping</p>
+                  <p className="font-body text-xs text-muted-foreground mt-1">All on-duty housekeepers will be notified and can accept the assignment.</p>
                 </div>
               </div>
             );
