@@ -22,6 +22,7 @@ import TabInvoice from '@/components/admin/TabInvoice';
 import RecipeEditor from '@/components/admin/RecipeEditor';
 import InventoryDashboard from '@/components/admin/InventoryDashboard';
 import ResortOpsDashboard from '@/components/admin/ResortOpsDashboard';
+import ExperiencesPage from '@/pages/ExperiencesPage';
 import InvoiceSettingsForm from '@/components/admin/InvoiceSettingsForm';
 import StaffAccessManager from '@/components/admin/StaffAccessManager';
 import EmployeeContactConfig from '@/components/admin/EmployeeContactConfig';
