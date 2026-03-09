@@ -827,8 +827,20 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
                     className="font-display text-[10px] tracking-wider min-h-[32px]">
                     <Receipt className="w-3 h-3 mr-0.5" /> Bill {billUnitId === unit.id ? <ChevronUp className="w-3 h-3 ml-0.5" /> : <ChevronDown className="w-3 h-3 ml-0.5" />}
                   </Button>
-                   {canDoEdit && (
-                     <Button size="sm" variant="outline" onClick={() => handleSendToCleanWithPicker(unit)}
+                   {canDoEdit && hkEmployeesForCheckout.length > 0 && (
+                     <>
+                       {hkEmployeesForCheckout.map((hk: any) => (
+                         <Button key={hk.id} size="sm" variant="outline"
+                           onClick={() => handleSendToClean(unit, hk.id, hk.display_name || hk.name)}
+                           disabled={sendingClean === unit.id}
+                           className="font-display text-[10px] tracking-wider min-h-[32px] border-amber-500/40 text-amber-400 hover:bg-amber-500/10">
+                           <Sparkles className="w-3 h-3 mr-0.5" /> {sendingClean === unit.id ? '...' : (hk.display_name || hk.name)}
+                         </Button>
+                       ))}
+                     </>
+                   )}
+                   {canDoEdit && hkEmployeesForCheckout.length === 0 && (
+                     <Button size="sm" variant="outline" onClick={() => handleSendToClean(unit)}
                        disabled={sendingClean === unit.id}
                        className="font-display text-[10px] tracking-wider min-h-[32px]">
                        <Sparkles className="w-3 h-3 mr-0.5" /> {sendingClean === unit.id ? '...' : 'Clean'}
