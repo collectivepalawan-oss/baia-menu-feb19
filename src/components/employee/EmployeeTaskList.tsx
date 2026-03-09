@@ -474,12 +474,14 @@ const EmployeeTaskList = ({ employeeId, createdBy = 'admin', readOnly = false, e
         );
       })}
 
-      {/* Task Details Modal */}
-      <TaskDetailsModal
+      {/* Task Detail Sheet */}
+      <TaskDetailSheet
         open={!!detailTask}
         onOpenChange={(open) => { if (!open) setDetailTask(null); }}
         task={detailTask}
         employeeName={detailTask ? getEmployeeName(detailTask.employee_id) : undefined}
+        authorName={getStaffName()}
+        readOnly={readOnly}
       />
     </div>
   );

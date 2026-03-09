@@ -62,7 +62,10 @@ const TaskCompletionPanel = ({ taskTitle, onConfirm, onCancel }: Props) => {
         )}
       </div>
       <div className="flex gap-2">
-        <Button size="sm" onClick={() => onConfirm(comment, imageUrl)}
+        <Button size="sm" onClick={() => {
+            if (!comment.trim()) { toast.error('Please add a completion note'); return; }
+            onConfirm(comment, imageUrl);
+          }}
           className="font-display text-xs tracking-wider flex-1 gap-1 bg-green-600 hover:bg-green-700 text-white">
           <CheckCircle2 className="w-4 h-4" /> Confirm Complete
         </Button>
