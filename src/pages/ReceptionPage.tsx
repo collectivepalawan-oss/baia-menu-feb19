@@ -296,6 +296,28 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
     return booking && booking.check_out === today;
   }).map(u => ({ unit: u, booking: getActiveBooking(u)! }));
 
+  // Week-ahead arrivals (tomorrow through +6 days)
+  const tomorrow = addDays(new Date(), 1).toISOString().split('T')[0];
+  const weekEnd = addDays(new Date(), 6).toISOString().split('T')[0];
+  const weekArrivals = bookings.filter((b: any) => b.check_in > today && b.check_in <= weekEnd)
+    .sort((a: any, b: any) => a.check_in.localeCompare(b.check_in));
+  const weekDepartures = bookings.filter((b: any) => b.check_out > today && b.check_out <= weekEnd)
+    .sort((a: any, b: any) => a.check_out.localeCompare(b.check_out));
+
+  // Group week arrivals by date
+  const weekArrivalsByDate = weekArrivals.reduce((acc: Record<string, any[]>, b: any) => {
+    if (!acc[b.check_in]) acc[b.check_in] = [];
+    acc[b.check_in].push(b);
+    return acc;
+  }, {} as Record<string, any[]>);
+
+  // Helper: get upcoming booking for a Ready room
+  const getUpcomingBooking = (unit: any) => {
+    const resortUnit = resolveResortUnit(unit.name);
+    if (!resortUnit) return null;
+    return bookings.find((b: any) => b.unit_id === resortUnit.id && b.check_in > today && b.check_in <= weekEnd) || null;
+  };
+
   // Occupancy counts
   const occupiedUnits = units.filter((u: any) => getUnitStatus(u) === 'occupied');
   const toCleanUnits = units.filter((u: any) => getUnitStatus(u) === 'to_clean');
