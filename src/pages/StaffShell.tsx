@@ -28,7 +28,7 @@ const ROLES: RoleDef[] = [
 
 const StaffShell = () => {
   const navigate = useNavigate();
-  const session = getSession();
+  const session = getStaffSession();
   const perms: string[] = session?.permissions || [];
   const isAdmin = perms.includes('admin');
 
