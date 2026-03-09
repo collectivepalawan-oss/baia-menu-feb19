@@ -1122,6 +1122,16 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
                 {guest && (
                   <p className="font-body text-[10px] text-muted-foreground truncate">{guest.full_name}</p>
                 )}
+                {status === 'ready' && (() => {
+                  const upcoming = getUpcomingBooking(unit);
+                  if (!upcoming) return null;
+                  const upGuest = (upcoming as any)?.resort_ops_guests;
+                  return (
+                    <p className="font-body text-[10px] text-blue-400 truncate">
+                      {upGuest?.full_name || 'Guest'} · {format(new Date(upcoming.check_in + 'T00:00:00'), 'MMM d')}
+                    </p>
+                  );
+                })()}
                 {status === 'to_clean' && canDoManage && (
                   <Button size="sm" variant="outline" onClick={() => handleForceReady(unit)}
                     disabled={forcingReady === unit.id}
