@@ -163,6 +163,7 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
       case 'Preparing': return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
       case 'Ready': return 'bg-green-500/20 text-green-300 border-green-500/30';
       case 'Served': return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+      case 'Paid': return 'bg-muted text-muted-foreground border-muted';
       default: return 'bg-muted text-muted-foreground';
     }
   };
