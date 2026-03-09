@@ -229,11 +229,11 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
 
       <Separator />
 
-      {/* ═══ SECTION: Unpaid F&B Orders ═══ */}
+      {/* ═══ SECTION: Active F&B Orders ═══ */}
       {unpaidOrders.length > 0 && (
         <div className="space-y-2">
           <p className="font-display text-xs tracking-wider text-muted-foreground uppercase flex items-center gap-1.5">
-            <UtensilsCrossed className="w-3.5 h-3.5" /> F&B Orders
+            <UtensilsCrossed className="w-3.5 h-3.5" /> Active F&B Orders
           </p>
           {unpaidOrders.map(o => {
             const items = Array.isArray(o.items) ? o.items : [];
@@ -267,6 +267,36 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
                     </div>
                   )}
                 </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ═══ SECTION: Paid F&B Orders ═══ */}
+      {paidOrders.length > 0 && (
+        <div className="space-y-2">
+          <p className="font-display text-xs tracking-wider text-muted-foreground uppercase flex items-center gap-1.5">
+            <CheckCircle className="w-3.5 h-3.5" /> Paid F&B Orders
+          </p>
+          {paidOrders.map(o => {
+            const items = Array.isArray(o.items) ? o.items : [];
+            const isChargedToRoom = o.payment_type === 'Charge to Room';
+            return (
+              <div key={o.id} className="border border-border/40 rounded-lg p-3 space-y-1.5 opacity-70">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-body text-xs text-muted-foreground">
+                    {format(new Date(o.created_at), 'MMM d h:mma')} · {o.staff_name || '—'}
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Badge variant="outline" className="text-[10px] bg-emerald-500/20 text-emerald-300 border-emerald-500/30">Paid</Badge>
+                    {isChargedToRoom && <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">Room</Badge>}
+                  </div>
+                </div>
+                <p className="font-body text-xs text-foreground">
+                  {items.map((i: any) => `${i.qty || 1}× ${i.name}`).join(', ')}
+                </p>
+                <span className="font-display text-sm text-muted-foreground">₱{Number(o.total).toLocaleString()}</span>
               </div>
             );
           })}
