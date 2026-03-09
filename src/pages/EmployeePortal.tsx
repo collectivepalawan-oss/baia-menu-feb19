@@ -5,12 +5,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Home, Clock, LogOut, ListTodo, Banknote, Settings, Star, LayoutDashboard, CalendarDays, KeyRound } from 'lucide-react';
+import { Clock, LogOut, ListTodo, Banknote, Settings, Star, LayoutDashboard, CalendarDays, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import EmployeeTaskList from '@/components/employee/EmployeeTaskList';
 import EmployeeScheduleView from '@/components/employee/EmployeeScheduleView';
 import { hasAccess, canEdit } from '@/lib/permissions';
+import StaffNavBar from '@/components/StaffNavBar';
 
 type Tab = 'clock' | 'schedule' | 'tasks' | 'pay' | 'settings' | 'dashboard';
 
@@ -226,27 +227,22 @@ const EmployeePortal = () => {
 
   return (
     <div className="min-h-screen bg-navy-texture overflow-x-hidden">
-      <div className="max-w-2xl mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/')} className="text-muted-foreground hover:text-foreground min-w-[44px] min-h-[44px] flex items-center justify-center">
-              <Home className="w-5 h-5" />
-            </button>
-            <div>
-              <h1 className="font-display text-lg tracking-wider text-foreground">
-                {(emp?.display_name || empName)}
-              </h1>
-              <p className="font-body text-xs text-muted-foreground">
-                {emp?.rate_type === 'daily' ? `₱${Number(emp?.daily_rate || 0).toFixed(0)}/day`
-                  : emp?.rate_type === 'monthly' ? `₱${Number(emp?.monthly_rate || 0).toLocaleString()}/mo`
-                  : `₱${Number(emp?.hourly_rate || 0).toFixed(0)}/hr`}
-              </p>
-            </div>
+      {/* Global navigation bar */}
+      <StaffNavBar />
+
+      <div className="max-w-2xl mx-auto px-4 pb-6">
+        {/* Header - simplified, name only */}
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="font-display text-lg tracking-wider text-foreground">
+              {(emp?.display_name || empName)}
+            </h1>
+            <p className="font-body text-xs text-muted-foreground">
+              {emp?.rate_type === 'daily' ? `₱${Number(emp?.daily_rate || 0).toFixed(0)}/day`
+                : emp?.rate_type === 'monthly' ? `₱${Number(emp?.monthly_rate || 0).toLocaleString()}/mo`
+                : `₱${Number(emp?.hourly_rate || 0).toFixed(0)}/hr`}
+            </p>
           </div>
-          <Button size="sm" variant="ghost" onClick={logout} className="text-muted-foreground font-display text-xs tracking-wider gap-1">
-            <LogOut className="w-3.5 h-3.5" /> Logout
-          </Button>
         </div>
 
         {/* Tab nav */}
