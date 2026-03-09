@@ -16,10 +16,8 @@ interface Props {
 }
 
 const TaskDetailSheet = ({ open, onOpenChange, task, employeeName, authorName, readOnly = false }: Props) => {
-  if (!task) return null;
-
-  const meta = task.completion_meta || {};
-  const isCompleted = task.status === 'completed';
+  const meta = task?.completion_meta || {};
+  const isCompleted = task?.status === 'completed';
 
   // Fetch comment count for activity log
   const { data: commentCount = 0 } = useQuery({
