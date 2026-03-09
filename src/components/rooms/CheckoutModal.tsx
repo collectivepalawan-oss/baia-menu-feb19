@@ -33,6 +33,23 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
   const [submitting, setSubmitting] = useState(false);
   const [selectedHousekeeper, setSelectedHousekeeper] = useState('');
 
+  // Fetch unpaid orders for this room (Served status, not charged to room)
+  const { data: unpaidOrders = [], refetch: refetchUnpaid } = useQuery({
+    queryKey: ['checkout-unpaid-orders', unitId],
+    enabled: open && !!unitId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('orders')
+        .select('id, total, guest_name, status, payment_type, created_at')
+        .eq('room_id', unitId)
+        .eq('status', 'Served')
+        .neq('payment_type', 'Charge to Room');
+      return data || [];
+    },
+  });
+
+  const unpaidTotal = unpaidOrders.reduce((s, o: any) => s + (o.total || 0), 0);
+
   // Fetch housekeeping employees
   const { data: hkEmployees = [] } = useQuery({
     queryKey: ['housekeeping-employees'],
@@ -59,6 +76,13 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
 
   const nights = booking ? Math.max(1, Math.ceil((new Date(booking.check_out).getTime() - new Date(booking.check_in).getTime()) / 86400000)) : 0;
   const roomRate = booking ? Number(booking.room_rate) : 0;
+
+  const markOrderPaid = async (orderId: string) => {
+    await supabase.from('orders').update({ status: 'Paid', closed_at: new Date().toISOString() }).eq('id', orderId);
+    refetchUnpaid();
+    qc.invalidateQueries({ queryKey: ['service-orders'] });
+    toast.success('Order marked as paid');
+  };
 
   const handleCheckout = async () => {
     setSubmitting(true);
@@ -155,7 +179,6 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
       setSubmitting(false);
     }
   };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-card border-border max-w-lg max-h-[85vh] overflow-y-auto">
