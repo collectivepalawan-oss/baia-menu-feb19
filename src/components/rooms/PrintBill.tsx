@@ -1,4 +1,6 @@
 import { useBillingConfig } from '@/hooks/useBillingConfig';
+import { useResortProfile } from '@/hooks/useResortProfile';
+import { useInvoiceSettings } from '@/hooks/useInvoiceSettings';
 import type { RoomTransaction } from '@/hooks/useRoomTransactions';
 import { format } from 'date-fns';
 
@@ -11,6 +13,8 @@ interface PrintBillProps {
 
 const PrintBill = ({ unitName, guestName, booking, transactions }: PrintBillProps) => {
   const { data: config } = useBillingConfig();
+  const { data: profile } = useResortProfile();
+  const { data: invoiceSettings } = useInvoiceSettings();
 
   const handlePrint = () => {
     const charges = transactions.filter(t => t.total_amount > 0);
@@ -21,6 +25,20 @@ const PrintBill = ({ unitName, guestName, booking, transactions }: PrintBillProp
 
     const staffNames = [...new Set(transactions.map(t => t.staff_name))].join(', ');
 
+    const resortName = profile?.resort_name || config?.receipt_header || 'RESORT';
+    const tagline = profile?.tagline || '';
+    const address = profile?.address || '';
+    const contactParts: string[] = [];
+    if (profile?.phone) contactParts.push(profile.phone);
+    if (profile?.email) contactParts.push(profile.email);
+    const contactLine = contactParts.join(' · ');
+    const websiteLine = profile?.website_url || '';
+
+    const thankYou = invoiceSettings?.thank_you_message || config?.receipt_footer || 'Thank you!';
+    const businessHours = invoiceSettings?.business_hours || '';
+    const footerText = invoiceSettings?.footer_text || '';
+    const tinNumber = invoiceSettings?.tin_number || '';
+
     const html = `<!DOCTYPE html>
 <html><head><style>
 body { font-family: 'Courier New', monospace; max-width: 300px; margin: 0 auto; padding: 10px; font-size: 12px; }
@@ -30,10 +48,17 @@ body { font-family: 'Courier New', monospace; max-width: 300px; margin: 0 auto; 
 .row { display: flex; justify-content: space-between; }
 .bold { font-weight: bold; }
 h2, h3 { margin: 4px 0; }
+.small { font-size: 10px; color: #555; }
 </style></head><body>
 <div class="center">
-  <h2>${config?.receipt_header || 'RESORT'}</h2>
-  <p>GUEST BILL</p>
+  <h2>${resortName}</h2>
+  ${tagline ? `<p class="small">${tagline}</p>` : ''}
+  ${address ? `<p class="small">${address}</p>` : ''}
+  ${contactLine ? `<p class="small">${contactLine}</p>` : ''}
+  ${websiteLine ? `<p class="small">${websiteLine}</p>` : ''}
+  ${tinNumber ? `<p class="small">TIN: ${tinNumber}</p>` : ''}
+  <div class="line"></div>
+  <p><strong>GUEST BILL</strong></p>
   <div class="line"></div>
   <p><strong>Room:</strong> ${unitName}</p>
   <p><strong>Guest:</strong> ${guestName || '—'}</p>
@@ -53,8 +78,10 @@ ${payments.map(t => `<div class="row"><span>${t.payment_method}</span><span>₱$
 <div class="line"></div>
 <div class="row bold" style="font-size:14px"><span>BALANCE</span><span>₱${balance.toLocaleString()}</span></div>
 <div class="line"></div>
-${config?.show_staff_on_receipt ? `<p class="center" style="font-size:10px">Served by: ${staffNames}</p>` : ''}
-<p class="center">${config?.receipt_footer || 'Thank you!'}</p>
+${config?.show_staff_on_receipt ? `<p class="center small">Served by: ${staffNames}</p>` : ''}
+${businessHours ? `<p class="center small">${businessHours}</p>` : ''}
+<p class="center">${thankYou}</p>
+${footerText ? `<p class="center small">${footerText}</p>` : ''}
 </body></html>`;
 
     const win = window.open('', '_blank');
