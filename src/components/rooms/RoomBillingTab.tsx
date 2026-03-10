@@ -402,7 +402,10 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
                 <p className="font-body text-xs text-foreground">
                   {items.map((i: any) => `${i.qty || 1}× ${i.name}`).join(', ')}
                 </p>
-                <span className="font-display text-sm text-muted-foreground">₱{Number(o.total).toLocaleString()}</span>
+                <div>
+                  <span className="font-display text-sm text-muted-foreground">₱{(Number(o.total || 0) + Number(o.service_charge || 0)).toLocaleString()}</span>
+                  <span className="font-body text-[10px] text-muted-foreground ml-1">(incl SC ₱{Number(o.service_charge || 0).toLocaleString()})</span>
+                </div>
               </div>
             );
           })}
