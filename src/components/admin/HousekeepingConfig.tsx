@@ -276,32 +276,36 @@ const HousekeepingConfig = ({ readOnly = false }: { readOnly?: boolean }) => {
               ))}
             </div>
 
-            <div className="space-y-2 border border-border rounded-lg p-3">
-              <p className="font-display text-xs tracking-wider text-muted-foreground">+ Add Checklist Item</p>
-              <Input value={newItemLabel} onChange={e => setNewItemLabel(e.target.value)} placeholder="Item label (e.g. TV - Working)"
-                className="bg-secondary border-border text-foreground font-body" />
-              <div className="flex items-center gap-4 flex-wrap">
-                <label className="flex items-center gap-2">
-                  <Checkbox checked={newItemRequired} onCheckedChange={v => setNewItemRequired(!!v)} />
-                  <span className="font-body text-xs text-muted-foreground">Required</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <Switch checked={newItemHasCount} onCheckedChange={setNewItemHasCount} />
-                  <span className="font-body text-xs text-muted-foreground">Count field</span>
-                </label>
-                {newItemHasCount && (
-                  <Input value={newItemCount} onChange={e => setNewItemCount(e.target.value)} placeholder="Expected"
-                    className="bg-secondary border-border text-foreground font-body h-8 w-20" type="number" />
-                )}
-              </div>
-              <Button onClick={addChecklistItem} variant="outline" className="w-full font-display text-xs tracking-wider">
-                <Plus className="w-3 h-3 mr-1" /> Add Item
-              </Button>
-            </div>
+            {!readOnly && (
+              <>
+                <div className="space-y-2 border border-border rounded-lg p-3">
+                  <p className="font-display text-xs tracking-wider text-muted-foreground">+ Add Checklist Item</p>
+                  <Input value={newItemLabel} onChange={e => setNewItemLabel(e.target.value)} placeholder="Item label (e.g. TV - Working)"
+                    className="bg-secondary border-border text-foreground font-body" />
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <label className="flex items-center gap-2">
+                      <Checkbox checked={newItemRequired} onCheckedChange={v => setNewItemRequired(!!v)} />
+                      <span className="font-body text-xs text-muted-foreground">Required</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <Switch checked={newItemHasCount} onCheckedChange={setNewItemHasCount} />
+                      <span className="font-body text-xs text-muted-foreground">Count field</span>
+                    </label>
+                    {newItemHasCount && (
+                      <Input value={newItemCount} onChange={e => setNewItemCount(e.target.value)} placeholder="Expected"
+                        className="bg-secondary border-border text-foreground font-body h-8 w-20" type="number" />
+                    )}
+                  </div>
+                  <Button onClick={addChecklistItem} variant="outline" className="w-full font-display text-xs tracking-wider">
+                    <Plus className="w-3 h-3 mr-1" /> Add Item
+                  </Button>
+                </div>
 
-            <Button variant="secondary" className="w-full font-display text-xs tracking-wider" onClick={() => toast.success('Checklist saved')}>
-              Save Checklist
-            </Button>
+                <Button variant="secondary" className="w-full font-display text-xs tracking-wider" onClick={() => toast.success('Checklist saved')}>
+                  Save Checklist
+                </Button>
+              </>
+            )}
           </>
         )}
       </div>
