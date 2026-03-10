@@ -1352,7 +1352,7 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
 
             const handleMarkPaid = async () => {
               await supabase.from('orders').update({ status: 'Paid', payment_type: 'Cash' }).eq('id', order.id);
-              logAudit('orders', order.id, 'update', `Marked order as Paid from reception`, empName);
+              logAudit('updated', 'orders', order.id, `Marked order as Paid from reception`);
               qc.invalidateQueries({ queryKey: ['reception-recent-orders'] });
               toast.success('Order marked as Paid');
             };
