@@ -309,15 +309,6 @@ const CartDrawer = ({ open, onOpenChange, mode, orderType: initialOrderType, loc
         tax_details: taxDetails,
         staff_name: staffName,
       };
-        status: 'New',
-        tab_id: tabId,
-        kitchen_status: hasKitchen ? 'pending' : 'ready',
-        bar_status: hasBar ? 'pending' : 'ready',
-        guest_name: resolvedGuestName,
-        room_id: roomUnit?.id || null,
-        tax_details: taxDetails,
-        staff_name: staffName,
-      };
       if (scheduledFor) insertData.scheduled_for = scheduledFor;
 
       const { data: orderRow } = await supabase.from('orders').insert(insertData).select('id').single();
