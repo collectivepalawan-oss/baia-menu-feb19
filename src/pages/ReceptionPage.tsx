@@ -1555,6 +1555,20 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
                       className="bg-secondary border-border text-foreground font-body" />
                   </div>
                 )}
+                {/* Late check-out fee */}
+                {getManilaHour() >= 12 && checkOutBooking.check_out === today && (
+                  <div className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-3 space-y-2">
+                    <p className="font-display text-xs tracking-wider text-amber-400 uppercase">⏰ Late Check-Out (after 12:00 PM)</p>
+                    <p className="font-body text-xs text-muted-foreground">Standard checkout is 12:00 PM noon. Add an optional late check-out fee.</p>
+                    <Input
+                      type="number"
+                      value={lateCheckOutFee}
+                      onChange={e => setLateCheckOutFee(e.target.value)}
+                      placeholder="₱0 (optional)"
+                      className="bg-secondary border-border text-foreground font-body"
+                    />
+                  </div>
+                )}
                 {/* Housekeeping broadcast notice */}
                 <div className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-3">
                   <p className="font-display text-xs tracking-wider text-amber-400 uppercase">🧹 Housekeeping</p>
