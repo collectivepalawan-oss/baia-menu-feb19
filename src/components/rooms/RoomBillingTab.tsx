@@ -138,9 +138,13 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    await supabase.from('orders').delete().eq('id', orderId);
+    await supabase.from('room_transactions').delete().eq('order_id', orderId);
+    await supabase.from('inventory_logs').delete().eq('order_id', orderId);
+    const { error } = await supabase.from('orders').delete().eq('id', orderId);
+    if (error) { toast.error(`Delete failed: ${error.message}`); return; }
     await logAudit('deleted', 'orders', orderId, `Deleted order by ${staffName}`);
     qc.invalidateQueries({ queryKey: ['billing-room-orders'] });
+    qc.invalidateQueries({ queryKey: ['room-transactions'] });
     toast.success('Order deleted');
   };
 

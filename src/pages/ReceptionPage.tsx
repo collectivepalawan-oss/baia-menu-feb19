@@ -1366,7 +1366,10 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
 
             const handleDelete = async () => {
               if (!confirm('Delete this order? This cannot be undone.')) return;
-              await supabase.from('orders').delete().eq('id', order.id);
+              await supabase.from('room_transactions').delete().eq('order_id', order.id);
+              await supabase.from('inventory_logs').delete().eq('order_id', order.id);
+              const { error } = await supabase.from('orders').delete().eq('id', order.id);
+              if (error) { toast.error(`Delete failed: ${error.message}`); return; }
               logAudit('deleted', 'orders', order.id, `Deleted order from reception`);
               qc.invalidateQueries({ queryKey: ['reception-recent-orders'] });
               toast.success('Order deleted');
