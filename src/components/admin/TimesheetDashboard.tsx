@@ -28,7 +28,7 @@ const diffHours = (clockIn: string, clockOut: string | null): number => {
   return Math.max(0, (new Date(clockOut).getTime() - new Date(clockIn).getTime()) / 3600000);
 };
 
-const TimesheetDashboard = () => {
+const TimesheetDashboard = ({ readOnly = false }: { readOnly?: boolean }) => {
   const isMobile = useIsMobile();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
