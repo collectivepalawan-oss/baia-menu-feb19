@@ -564,12 +564,35 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
       }).eq('id', checkInBooking.id);
 
       await supabase.from('units').update({ status: 'occupied' } as any).eq('id', unit.id);
-      await logAudit('created', 'units', unit.id, `Check-in: ${checkInBooking.resort_ops_guests?.full_name} to ${unitName}`);
+
+      // Early check-in fee
+      const earlyFee = parseFloat(earlyCheckInFee) || 0;
+      if (earlyFee > 0) {
+        await (from('room_transactions') as any).insert({
+          unit_id: unit.id,
+          unit_name: unitName,
+          guest_name: guestFullName,
+          booking_id: checkInBooking.id,
+          transaction_type: 'charge',
+          amount: earlyFee,
+          tax_amount: 0,
+          service_charge_amount: 0,
+          total_amount: earlyFee,
+          payment_method: '',
+          staff_name: staffName,
+          notes: 'Early check-in fee',
+        });
+        await logAudit('created', 'room_transactions', unit.id, `Early check-in fee: ₱${earlyFee.toLocaleString()} for ${guestFullName} in ${unitName}`);
+      }
+
+      await logAudit('created', 'units', unit.id, `Check-in: ${checkInBooking.resort_ops_guests?.full_name} to ${unitName}${earlyFee > 0 ? ` (early fee: ₱${earlyFee})` : ''}`);
 
       qc.invalidateQueries({ queryKey: ['rooms-bookings'] });
       qc.invalidateQueries({ queryKey: ['rooms-units'] });
+      qc.invalidateQueries({ queryKey: ['room-transactions', unit.id] });
       setCheckInModalOpen(false);
       setCheckInBooking(null);
+      setEarlyCheckInFee('');
       toast.success(`Checked in to ${unitName}. Room password: ${roomPassword}`, { duration: 10000 });
     } catch (err: any) {
       toast.error(err.message || 'Check-in failed');
