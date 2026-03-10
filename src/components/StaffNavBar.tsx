@@ -128,17 +128,6 @@ const StaffNavBar = ({ activeDepartment }: StaffNavBarProps) => {
         <Monitor className="w-4 h-4" />
         Service
       </Button>
-      {hasDashboardAccess && (
-        <Button
-          variant={isActive('/admin') ? 'default' : 'ghost'}
-          size="sm"
-          onClick={goDashboard}
-          className={`font-display text-xs tracking-wider gap-1.5 ${mobile ? 'w-full justify-start' : ''}`}
-        >
-          <LayoutDashboard className="w-4 h-4" />
-          Dashboard
-        </Button>
-      )}
     </>
   );
 
