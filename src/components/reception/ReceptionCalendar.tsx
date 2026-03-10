@@ -35,11 +35,23 @@ const ReceptionCalendar = ({ bookings, rooms, units, canEdit, canManage }: Recep
   const { start, end } = useMemo(() => getDateRange(refDate, view), [refDate, view]);
   const days = useMemo(() => getDaysInRange(start, end), [start, end]);
 
+  // Build unit status lookup: resort_ops_unit_id → status from units table (by matching name)
+  const unitStatusMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const room of rooms) {
+      const matchingUnit = units.find(u => (u.name || u.unit_name || '') === room.name);
+      if (matchingUnit?.status) map[room.id] = matchingUnit.status;
+    }
+    return map;
+  }, [rooms, units]);
+
   // Filter bookings that overlap the visible range
   const visibleBookings = useMemo(() =>
     bookings.filter(b => bookingOverlapsRange(b, start, end)),
     [bookings, start, end]
   );
+
+  const getUnitStatusForBooking = (b: BookingWithGuest) => b.unit_id ? unitStatusMap[b.unit_id] : undefined;
 
   const navigate = (dir: 'prev' | 'next') => {
     setRefDate(d => {
