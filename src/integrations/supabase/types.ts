@@ -1600,6 +1600,7 @@ export type Database = {
         Row: {
           addons_total: number
           adults: number
+          bill_agreed_at: string | null
           check_in: string
           check_out: string
           children: number
@@ -1622,6 +1623,7 @@ export type Database = {
         Insert: {
           addons_total?: number
           adults?: number
+          bill_agreed_at?: string | null
           check_in: string
           check_out: string
           children?: number
@@ -1644,6 +1646,7 @@ export type Database = {
         Update: {
           addons_total?: number
           adults?: number
+          bill_agreed_at?: string | null
           check_in?: string
           check_out?: string
           children?: number
