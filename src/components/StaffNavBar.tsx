@@ -81,10 +81,6 @@ const StaffNavBar = ({ activeDepartment }: StaffNavBarProps) => {
     setMenuOpen(false);
   };
 
-  const goDashboard = () => {
-    navigate('/admin');
-    setMenuOpen(false);
-  };
 
   const isActive = (path: string) => location.pathname === path;
 
