@@ -1007,19 +1007,19 @@ const BillView = ({ session }: { session: GuestPortalSession }) => {
     },
   });
 
-  // Unpaid F&B orders (not charged to room, status = Served)
+  // Unpaid F&B orders (not charged to room)
   const { data: unpaidOrders = [] } = useQuery({
     queryKey: ['guest-bill-unpaid-orders', session.room_id, session.room_name],
     queryFn: async () => {
       const { data: byRoom } = await supabase
         .from('orders')
-        .select('id, total, guest_name, status, payment_type, created_at, items')
+        .select('id, total, service_charge, guest_name, status, payment_type, created_at, items')
         .eq('room_id', session.room_id)
         .in('status', ['New', 'Preparing', 'Ready', 'Served'])
         .neq('payment_type', 'Charge to Room');
       const { data: byLocation } = await supabase
         .from('orders')
-        .select('id, total, guest_name, status, payment_type, created_at, items')
+        .select('id, total, service_charge, guest_name, status, payment_type, created_at, items')
         .is('room_id', null)
         .eq('location_detail', session.room_name)
         .in('status', ['New', 'Preparing', 'Ready', 'Served']);
