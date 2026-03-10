@@ -1089,7 +1089,9 @@ const BillView = ({ session }: { session: GuestPortalSession }) => {
   const payments = transactions.filter((t: any) => (t.total_amount || 0) < 0);
   const totalCharges = charges.reduce((s: number, t: any) => s + (t.total_amount || 0), 0);
   const totalPayments = Math.abs(payments.reduce((s: number, t: any) => s + (t.total_amount || 0), 0));
-  const unpaidOrdersTotal = unpaidOrders.reduce((s: number, o: any) => s + (o.total || 0), 0);
+  const unpaidOrdersTotal = unpaidOrders.reduce((s: number, o: any) => s + (o.total || 0) + (o.service_charge || 0), 0);
+  const unpaidOrdersSCTotal = unpaidOrders.reduce((s: number, o: any) => s + (o.service_charge || 0), 0);
+  const unpaidOrdersSubtotal = unpaidOrdersTotal - unpaidOrdersSCTotal;
   const balance = totalCharges - totalPayments + unpaidOrdersTotal;
   const hasPending = pendingTours.length > 0 || pendingRequests.length > 0;
 
