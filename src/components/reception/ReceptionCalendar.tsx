@@ -11,9 +11,17 @@ import {
 } from './calendarUtils';
 import AddReservationModal from './AddReservationModal';
 
+interface UnitWithStatus {
+  id: string;
+  unit_name?: string;
+  name?: string;
+  status?: string;
+}
+
 interface ReceptionCalendarProps {
   bookings: BookingWithGuest[];
   rooms: ResortUnit[];
+  units: UnitWithStatus[];
   canEdit: boolean;
   canManage: boolean;
 }

@@ -95,16 +95,22 @@ export const findAvailableRooms = (
   });
 };
 
-/** Get booking status for color coding */
-export const getBookingStatus = (booking: BookingWithGuest): 'confirmed' | 'pending' | 'maintenance' => {
-  if (booking.platform === 'Maintenance') return 'maintenance';
-  if (booking.paid_amount > 0 || booking.platform === 'Direct') return 'confirmed';
-  return 'pending';
+/** Get booking status for color coding based on real occupancy */
+export const getBookingStatus = (
+  booking: BookingWithGuest,
+  unitStatus?: string,
+): 'occupied' | 'upcoming' | 'checked_out' | 'blocked' => {
+  if (booking.platform === 'Maintenance') return 'blocked';
+  const today = new Date().toISOString().split('T')[0];
+  if (booking.check_out <= today) return 'checked_out';
+  if (unitStatus === 'occupied' && booking.check_in <= today) return 'occupied';
+  return 'upcoming';
 };
 
 /** Status colors using semantic tokens */
 export const statusColors: Record<string, { bg: string; text: string; border: string }> = {
-  confirmed: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/40' },
-  pending: { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/40' },
-  maintenance: { bg: 'bg-destructive/20', text: 'text-destructive', border: 'border-destructive/40' },
+  occupied: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/40' },
+  upcoming: { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/40' },
+  checked_out: { bg: 'bg-muted/30', text: 'text-muted-foreground', border: 'border-border' },
+  blocked: { bg: 'bg-destructive/20', text: 'text-destructive', border: 'border-destructive/40' },
 };
