@@ -40,24 +40,13 @@ import DepartmentOrdersView from '@/components/DepartmentOrdersView';
 
 import { deductInventoryForOrder } from '@/lib/inventoryDeduction';
 import { hasAccess, canEdit, canViewDocuments } from '@/lib/permissions';
+import { usePermissions } from '@/hooks/usePermissions';
 
 import { formatDistanceToNow } from 'date-fns';
 import { useResortProfile } from '@/hooks/useResortProfile';
 
 type DateFilter = 'today' | 'yesterday' | 'all';
 
-// ── Session helpers ──────────────────────────────────────────────
-const SESSION_KEY = 'staff_home_session';
-const getSession = () => {
-  try {
-    const stored = sessionStorage.getItem(SESSION_KEY);
-    if (stored) {
-      const s = JSON.parse(stored);
-      if (s.expiresAt > Date.now()) return s;
-    }
-  } catch {}
-  return null;
-};
 
 // ── Tab / section definitions ────────────────────────────────────
 interface TabDef { value: string; label: string; perm: string | null }
@@ -94,19 +83,16 @@ const AdminPage = () => {
   const { data: resortProfile } = useResortProfile();
 
   // ── Permissions ────────────────────────────────────────────────
-  const session = getSession();
-  const perms: string[] = session?.permissions || [];
-  const isAdmin = perms.includes('admin');
+  const { perms, isAdmin, canView, canEdit: canEditModule, readOnly, canViewDocuments: docsAllowedFn } = usePermissions();
 
-  const allowed = (t: TabDef) => isAdmin || (t.perm !== null && hasAccess(perms, t.perm));
+  const allowed = (t: TabDef) => isAdmin || (t.perm !== null && canView(t.perm));
   const opsTabs = OPERATIONS.filter(allowed);
   const peopleTabs = PEOPLE.filter(allowed);
   const cfgTabs = CONFIG.filter(allowed);
   const allTabs = [...opsTabs, ...peopleTabs, ...cfgTabs];
   const defaultTab = allTabs[0]?.value || 'orders';
 
-  const readOnly = (section: string) => !isAdmin && !canEdit(perms, section);
-  const docsAllowed = isAdmin || canViewDocuments(perms);
+  const docsAllowed = docsAllowedFn();
 
   // ── Realtime ───────────────────────────────────────────────────
   useEffect(() => {
@@ -698,9 +684,7 @@ const AdminPage = () => {
           {/* HOUSEKEEPING TAB */}
           {(isAdmin || hasAccess(perms, 'housekeeping')) && (
             <TabsContent value="housekeeping">
-              <div className={readOnly('housekeeping') ? 'pointer-events-none opacity-70' : ''}>
-                <HousekeepingConfig />
-              </div>
+              <HousekeepingConfig readOnly={readOnly('housekeeping')} />
             </TabsContent>
           )}
 
@@ -722,9 +706,7 @@ const AdminPage = () => {
 
           {(isAdmin || hasAccess(perms, 'timesheet')) && (
             <TabsContent value="timesheet">
-              <div className={readOnly('timesheet') ? 'pointer-events-none opacity-70' : ''}>
-                <TimesheetDashboard />
-              </div>
+              <TimesheetDashboard readOnly={readOnly('timesheet')} />
             </TabsContent>
           )}
 

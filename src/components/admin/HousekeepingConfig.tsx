@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Plus, Trash2, Copy, Package, ClipboardList, Home, Eye, EyeOff } from 'lucide-react';
 
-const HousekeepingConfig = () => {
+const HousekeepingConfig = ({ readOnly = false }: { readOnly?: boolean }) => {
   const qc = useQueryClient();
   const checklistRef = useRef<HTMLDivElement>(null);
   const packageRef = useRef<HTMLDivElement>(null);
@@ -244,6 +244,7 @@ const HousekeepingConfig = () => {
                     size="sm"
                     className="h-7 text-[10px] font-display px-2 shrink-0"
                     onClick={() => toggleChecklistRequired(item)}
+                    disabled={readOnly}
                   >
                     {item.is_required ? 'Required' : 'Optional'}
                   </Button>
@@ -255,47 +256,56 @@ const HousekeepingConfig = () => {
                         value={item.count_expected}
                         onChange={e => updateChecklistCount(item.id, parseInt(e.target.value) || null)}
                         className="bg-secondary border-border text-foreground font-body h-7 w-14 text-xs"
+                        disabled={readOnly}
                       />
                     </div>
                   ) : (
-                    <Button variant="ghost" size="sm" className="h-7 text-[10px] font-body text-muted-foreground px-2 shrink-0"
-                      onClick={() => updateChecklistCount(item.id, 1)}>
-                      + Count
+                    !readOnly && (
+                      <Button variant="ghost" size="sm" className="h-7 text-[10px] font-body text-muted-foreground px-2 shrink-0"
+                        onClick={() => updateChecklistCount(item.id, 1)}>
+                        + Count
+                      </Button>
+                    )
+                  )}
+                  {!readOnly && (
+                    <Button variant="ghost" size="icon" onClick={() => deleteChecklistItem(item.id)} className="text-destructive h-7 w-7 shrink-0">
+                      <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   )}
-                  <Button variant="ghost" size="icon" onClick={() => deleteChecklistItem(item.id)} className="text-destructive h-7 w-7 shrink-0">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
                 </div>
               ))}
             </div>
 
-            <div className="space-y-2 border border-border rounded-lg p-3">
-              <p className="font-display text-xs tracking-wider text-muted-foreground">+ Add Checklist Item</p>
-              <Input value={newItemLabel} onChange={e => setNewItemLabel(e.target.value)} placeholder="Item label (e.g. TV - Working)"
-                className="bg-secondary border-border text-foreground font-body" />
-              <div className="flex items-center gap-4 flex-wrap">
-                <label className="flex items-center gap-2">
-                  <Checkbox checked={newItemRequired} onCheckedChange={v => setNewItemRequired(!!v)} />
-                  <span className="font-body text-xs text-muted-foreground">Required</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <Switch checked={newItemHasCount} onCheckedChange={setNewItemHasCount} />
-                  <span className="font-body text-xs text-muted-foreground">Count field</span>
-                </label>
-                {newItemHasCount && (
-                  <Input value={newItemCount} onChange={e => setNewItemCount(e.target.value)} placeholder="Expected"
-                    className="bg-secondary border-border text-foreground font-body h-8 w-20" type="number" />
-                )}
-              </div>
-              <Button onClick={addChecklistItem} variant="outline" className="w-full font-display text-xs tracking-wider">
-                <Plus className="w-3 h-3 mr-1" /> Add Item
-              </Button>
-            </div>
+            {!readOnly && (
+              <>
+                <div className="space-y-2 border border-border rounded-lg p-3">
+                  <p className="font-display text-xs tracking-wider text-muted-foreground">+ Add Checklist Item</p>
+                  <Input value={newItemLabel} onChange={e => setNewItemLabel(e.target.value)} placeholder="Item label (e.g. TV - Working)"
+                    className="bg-secondary border-border text-foreground font-body" />
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <label className="flex items-center gap-2">
+                      <Checkbox checked={newItemRequired} onCheckedChange={v => setNewItemRequired(!!v)} />
+                      <span className="font-body text-xs text-muted-foreground">Required</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <Switch checked={newItemHasCount} onCheckedChange={setNewItemHasCount} />
+                      <span className="font-body text-xs text-muted-foreground">Count field</span>
+                    </label>
+                    {newItemHasCount && (
+                      <Input value={newItemCount} onChange={e => setNewItemCount(e.target.value)} placeholder="Expected"
+                        className="bg-secondary border-border text-foreground font-body h-8 w-20" type="number" />
+                    )}
+                  </div>
+                  <Button onClick={addChecklistItem} variant="outline" className="w-full font-display text-xs tracking-wider">
+                    <Plus className="w-3 h-3 mr-1" /> Add Item
+                  </Button>
+                </div>
 
-            <Button variant="secondary" className="w-full font-display text-xs tracking-wider" onClick={() => toast.success('Checklist saved')}>
-              Save Checklist
-            </Button>
+                <Button variant="secondary" className="w-full font-display text-xs tracking-wider" onClick={() => toast.success('Checklist saved')}>
+                  Save Checklist
+                </Button>
+              </>
+            )}
           </>
         )}
       </div>
@@ -330,17 +340,19 @@ const HousekeepingConfig = () => {
                     <p className="font-display text-sm text-foreground tracking-wider">
                       {getRoomTypeName(activePackageTypeId)} — {pkg.name}
                     </p>
-                    <div className="flex gap-1">
-                      <Button variant="outline" size="sm" className="h-7 text-xs font-display gap-1" onClick={() => setEditingPackageId(isEditing ? null : pkg.id)}>
-                        <ClipboardList className="w-3 h-3" /> {isEditing ? 'Done' : 'Edit'}
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-7 text-xs font-display gap-1" onClick={() => duplicatePackage(pkg)}>
-                        <Copy className="w-3 h-3" /> Duplicate
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => deletePackage(pkg.id)} className="text-destructive h-7 w-7">
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
+                    {!readOnly && (
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="sm" className="h-7 text-xs font-display gap-1" onClick={() => setEditingPackageId(isEditing ? null : pkg.id)}>
+                          <ClipboardList className="w-3 h-3" /> {isEditing ? 'Done' : 'Edit'}
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-7 text-xs font-display gap-1" onClick={() => duplicatePackage(pkg)}>
+                          <Copy className="w-3 h-3" /> Duplicate
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => deletePackage(pkg.id)} className="text-destructive h-7 w-7">
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
                   {items.length > 0 && (
@@ -398,11 +410,13 @@ const HousekeepingConfig = () => {
               );
             })}
 
-            <div className="flex gap-2">
-              <Input value={newPackageName} onChange={e => setNewPackageName(e.target.value)} placeholder="New package name (e.g. Deep Clean)"
-                className="bg-secondary border-border text-foreground font-body" onKeyDown={e => e.key === 'Enter' && addPackage()} />
-              <Button onClick={addPackage} size="icon" variant="outline"><Plus className="w-4 h-4" /></Button>
-            </div>
+            {!readOnly && (
+              <div className="flex gap-2">
+                <Input value={newPackageName} onChange={e => setNewPackageName(e.target.value)} placeholder="New package name (e.g. Deep Clean)"
+                  className="bg-secondary border-border text-foreground font-body" onKeyDown={e => e.key === 'Enter' && addPackage()} />
+                <Button onClick={addPackage} size="icon" variant="outline"><Plus className="w-4 h-4" /></Button>
+              </div>
+            )}
           </>
         )}
       </div>

@@ -28,7 +28,7 @@ const diffHours = (clockIn: string, clockOut: string | null): number => {
   return Math.max(0, (new Date(clockOut).getTime() - new Date(clockIn).getTime()) / 3600000);
 };
 
-const TimesheetDashboard = () => {
+const TimesheetDashboard = ({ readOnly = false }: { readOnly?: boolean }) => {
   const isMobile = useIsMobile();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -197,10 +197,14 @@ const TimesheetDashboard = () => {
         <Button size="sm" variant="outline" className="font-display text-xs h-9" onClick={downloadCSV}>
           <Download className="h-3 w-3 mr-1" /> CSV
         </Button>
-        <Button size="sm" variant="outline" className="font-display text-xs h-9" onClick={() => fileRef.current?.click()}>
-          <Upload className="h-3 w-3 mr-1" /> Bulk
-        </Button>
-        <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleBulkUpload} />
+        {!readOnly && (
+          <>
+            <Button size="sm" variant="outline" className="font-display text-xs h-9" onClick={() => fileRef.current?.click()}>
+              <Upload className="h-3 w-3 mr-1" /> Bulk
+            </Button>
+            <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleBulkUpload} />
+          </>
+        )}
       </div>
 
       {/* Calculate Hours & Pay */}
@@ -296,19 +300,21 @@ const TimesheetDashboard = () => {
                 <div className="font-body text-xs text-muted-foreground">
                   {hours > 0 ? `${hours.toFixed(1)}h` : '-'} {entry.paid_amount ? `· ₱${entry.paid_amount}` : ''}
                 </div>
-                <div className="flex gap-1 pt-2">
-                  {!entry.clock_out && (
-                    <Button size="sm" variant="outline" className="h-10 w-10 p-0" onClick={() => clockOut(entry.id)}>
-                      <Clock className="h-3.5 w-3.5" />
+                {!readOnly && (
+                  <div className="flex gap-1 pt-2">
+                    {!entry.clock_out && (
+                      <Button size="sm" variant="outline" className="h-10 w-10 p-0" onClick={() => clockOut(entry.id)}>
+                        <Clock className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" className="h-10 w-10 p-0" onClick={() => startEdit(entry)}>
+                      <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                  )}
-                  <Button size="sm" variant="outline" className="h-10 w-10 p-0" onClick={() => startEdit(entry)}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-10 w-10 p-0 text-destructive" onClick={() => setDeleteId(entry.id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
+                    <Button size="sm" variant="outline" className="h-10 w-10 p-0 text-destructive" onClick={() => setDeleteId(entry.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
