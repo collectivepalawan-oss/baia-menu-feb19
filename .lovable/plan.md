@@ -1,28 +1,37 @@
 
 
-## Prevent Double Bookings: Real-Time Availability in Reservation Form
+## Plan: Fix Schedule Delete & Enhance Task/Assignment Scheduling
 
-### Problem
-The conflict check only fires when the receptionist clicks "Create" — by then they've already filled the whole form. There's no visual feedback while selecting a room or dates, making it easy to miss conflicts.
+### Issues Found
 
-### Fix: Three layers of protection
+1. **Delete button bug**: The trash icon on shift blocks triggers `setDeleteId(s.id)`, but the parent div's `onClick={() => openEdit(s)}` fires simultaneously despite `stopPropagation`. On mobile, the tiny button (3x3 icon) is nearly impossible to tap. The AlertDialog `onOpenChange={() => setDeleteId(null)}` also races with the confirm action.
 
-**1. Room dropdown shows availability badges (primary fix)**
-When both check-in and check-out dates are filled, each room in the dropdown shows a colored indicator:
-- Green dot + "Available" for open rooms
-- Red dot + "Booked: [Guest Name] Mar 10-13" for conflicting rooms
-- Conflicting rooms are pushed to the bottom of the list and visually dimmed
+2. **Missing scheduling features**: The schedule only manages time shifts. There's no way to assign tasks like housecleaning, reception duty, or track completion from within the schedule view.
 
-**2. Inline conflict warning banner**
-When the user selects a room that has conflicts for the chosen dates, show a persistent red warning banner below the room selector (before they even try to save): "⚠ Double Room #2 is booked by John Turner Mar 11-13. Pick another room or change dates."
+### Changes
 
-**3. Block save for non-managers (tighten override)**
-Currently any user who triggers the conflict modal can still see the override button if `canManage` is true. Keep that, but for non-managers, completely block the save — no override option, must pick an alternative room.
+**1. Fix Delete Button** (`WeeklyScheduleManager.tsx`)
+- Make `confirmDelete` capture `deleteId` before the dialog closes by saving it in a ref or local variable
+- Increase touch target size for edit/delete buttons on shift blocks
+- Prevent edit modal from opening when clicking edit/delete icons (the `stopPropagation` exists but the parent click handler on the entire timeline area also fires)
 
-### File to Edit
-1. `src/components/reception/AddReservationModal.tsx`
-   - Add a `useMemo` that runs `findConflicts` whenever `form.unitId`, `form.checkIn`, or `form.checkOut` change → produces `liveConflicts` array
-   - Render inline warning banner when `liveConflicts.length > 0`
-   - Enhance room `<SelectItem>` to show availability status per room using `findConflicts` for each room against the selected dates
-   - Sort rooms: available first, conflicting last (dimmed)
+**2. Add Task/Assignment Creation from Schedule** (`WeeklyScheduleManager.tsx`)
+- Add an "Assign Task" button alongside "Add Shift" 
+- New modal to create a task assignment: select employee, pick type (Housecleaning, Reception, Custom), set date/time, add notes
+- For housecleaning: select a room/unit to clean, auto-creates a `housekeeping_orders` entry assigned to the selected employee
+- For other tasks: creates an `employee_tasks` entry with due date and description
+- Tasks appear as colored pills on the timeline (already partially implemented)
+
+**3. Show Completion Info on Task Detail** (`WeeklyScheduleManager.tsx`)
+- In the task detail dialog, show who completed the task and when (`completed_at`)
+- For housekeeping pills, show completion status (`cleaning_completed_at`, `completed_by_name`)
+- Make housekeeping pills clickable to show full details (room, status, who inspected/cleaned)
+
+**4. Enhance Task Detail Dialog** (`WeeklyScheduleManager.tsx`)
+- Add edit capability: change title, description, due date, reassign to different employee
+- Add delete capability for tasks
+- Show completion audit trail
+
+### Files to Edit
+- `src/components/admin/WeeklyScheduleManager.tsx` — all changes in this single file
 
