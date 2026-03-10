@@ -1113,8 +1113,73 @@ const RoomsDashboard = ({ readOnly = false, canViewDocuments = true, initialUnit
           <div className="space-y-3">
             {!readOnly && (
               <div className="border border-border rounded-lg p-3 space-y-2">
-                <Input value={tourName} onChange={e => setTourName(e.target.value)} placeholder="Tour name *"
-                  className="bg-secondary border-border text-foreground font-body text-sm" />
+                {/* Catalog dropdown or manual entry */}
+                {tourCatalogMode === 'catalog' ? (
+                  <Select onValueChange={(val) => {
+                    if (val === '__other__') {
+                      setTourCatalogMode('other');
+                      setTourName(''); setTourPrice(''); setTourProvider('');
+                      return;
+                    }
+                    // Parse selection: "type::name::price::provider"
+                    const [, name, price, provider] = val.split('::');
+                    setTourName(name || '');
+                    setTourPrice(price || '0');
+                    setTourProvider(provider || '');
+                  }}>
+                    <SelectTrigger className="bg-secondary border-border text-foreground font-body text-sm">
+                      <SelectValue placeholder="Select tour / experience / rental *" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {toursConfig.length > 0 && (
+                        <SelectGroup>
+                          <SelectLabel className="font-display text-xs tracking-wider text-muted-foreground">Tours & Experiences</SelectLabel>
+                          {toursConfig.map((t: any) => (
+                            <SelectItem key={t.id} value={`tour::${t.name}::${t.price}::${t.provider || ''}`}>
+                              {t.name} — ₱{t.price}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      )}
+                      {rentalRates.length > 0 && (
+                        <SelectGroup>
+                          <SelectLabel className="font-display text-xs tracking-wider text-muted-foreground">Rentals</SelectLabel>
+                          {rentalRates.map((r: any) => (
+                            <SelectItem key={r.id} value={`rental::${r.rate_name}::${r.price}::${r.item_type || ''}`}>
+                              {r.rate_name} — ₱{r.price}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      )}
+                      {transportRates.length > 0 && (
+                        <SelectGroup>
+                          <SelectLabel className="font-display text-xs tracking-wider text-muted-foreground">Transport</SelectLabel>
+                          {transportRates.map((tr: any) => (
+                            <SelectItem key={tr.id} value={`transport::${tr.type}::${tr.price}::`}>
+                              {tr.type} — ₱{tr.price}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      )}
+                      <SelectGroup>
+                        <SelectItem value="__other__">✏️ Other (type manually)</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="flex gap-2">
+                    <Input value={tourName} onChange={e => setTourName(e.target.value)} placeholder="Tour name *"
+                      className="bg-secondary border-border text-foreground font-body text-sm flex-1" />
+                    <Button size="sm" variant="outline" onClick={() => setTourCatalogMode('catalog')}
+                      className="font-body text-xs shrink-0">Catalog</Button>
+                  </div>
+                )}
+                {tourName && (
+                  <p className="font-body text-xs text-muted-foreground px-1">
+                    Selected: <span className="text-foreground font-medium">{tourName}</span>
+                    {tourPrice && <> · ₱{tourPrice}</>}
+                  </p>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <Input value={tourProvider} onChange={e => setTourProvider(e.target.value)} placeholder="Provider / vendor"
                     className="bg-secondary border-border text-foreground font-body text-xs" />
@@ -1133,7 +1198,7 @@ const RoomsDashboard = ({ readOnly = false, canViewDocuments = true, initialUnit
                   className="bg-secondary border-border text-foreground font-body text-xs" />
                 <Button size="sm" onClick={addTour} disabled={!tourName.trim() || !tourDate}
                   className="font-display text-xs tracking-wider w-full min-h-[44px]">
-                  <Plus className="w-3.5 h-3.5 mr-1" /> Add Tour
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Add Tour / Experience
                 </Button>
               </div>
             )}
