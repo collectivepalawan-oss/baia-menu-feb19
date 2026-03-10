@@ -1367,7 +1367,7 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
             const handleDelete = async () => {
               if (!confirm('Delete this order? This cannot be undone.')) return;
               await supabase.from('orders').delete().eq('id', order.id);
-              logAudit('orders', order.id, 'delete', `Deleted order from reception`, empName);
+              logAudit('deleted', 'orders', order.id, `Deleted order from reception`);
               qc.invalidateQueries({ queryKey: ['reception-recent-orders'] });
               toast.success('Order deleted');
             };
