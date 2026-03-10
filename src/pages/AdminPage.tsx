@@ -37,6 +37,7 @@ import AuditLogView from '@/components/admin/AuditLogView';
 import OrderArchive from '@/components/admin/OrderArchive';
 import GuestPortalConfig from '@/components/admin/GuestPortalConfig';
 import DepartmentOrdersView from '@/components/DepartmentOrdersView';
+import IntegrationReadinessDashboard from '@/components/integration/IntegrationReadinessDashboard';
 
 import { deductInventoryForOrder } from '@/lib/inventoryDeduction';
 import { hasAccess, canEdit, canViewDocuments } from '@/lib/permissions';
@@ -85,6 +86,7 @@ const CONFIG: TabDef[] = [
   { value: 'audit', label: 'Audit', perm: null },
   { value: 'archive', label: 'Archive', perm: null },
   { value: 'guest-portal', label: 'Guest Portal', perm: null },
+  ...(import.meta.env.DEV ? [{ value: 'integration', label: 'Integration', perm: null } as TabDef] : []),
 ];
 
 const AdminPage = () => {
@@ -1029,6 +1031,13 @@ const AdminPage = () => {
           {isAdmin && (
             <TabsContent value="guest-portal">
               <GuestPortalConfig />
+            </TabsContent>
+          )}
+
+          {/* INTEGRATION READINESS TAB (dev only) */}
+          {import.meta.env.DEV && isAdmin && (
+            <TabsContent value="integration">
+              <IntegrationReadinessDashboard />
             </TabsContent>
           )}
         </Tabs>

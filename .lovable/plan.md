@@ -1,91 +1,37 @@
 
 
-## Integration Readiness — Isolated Module
+## Plan: Fix Schedule Delete & Enhance Task/Assignment Scheduling
 
-All new code lives in separate files/directories. Zero modifications to existing production code.
+### Issues Found
 
-### 1. Database Migration
+1. **Delete button bug**: The trash icon on shift blocks triggers `setDeleteId(s.id)`, but the parent div's `onClick={() => openEdit(s)}` fires simultaneously despite `stopPropagation`. On mobile, the tiny button (3x3 icon) is nearly impossible to tap. The AlertDialog `onOpenChange={() => setDeleteId(null)}` also races with the confirm action.
 
-**Add columns to `resort_ops_bookings`** (all nullable with defaults):
-```sql
-ALTER TABLE resort_ops_bookings
-  ADD COLUMN IF NOT EXISTS source text DEFAULT 'walkin',
-  ADD COLUMN IF NOT EXISTS external_reservation_id text NULL,
-  ADD COLUMN IF NOT EXISTS last_synced_at timestamptz NULL,
-  ADD COLUMN IF NOT EXISTS external_data jsonb NULL;
+2. **Missing scheduling features**: The schedule only manages time shifts. There's no way to assign tasks like housecleaning, reception duty, or track completion from within the schedule view.
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_bookings_external_res_id
-  ON resort_ops_bookings (external_reservation_id) WHERE external_reservation_id IS NOT NULL;
-```
+### Changes
 
-**Create `webhook_events` table:**
-```sql
-CREATE TABLE webhook_events (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id text NOT NULL,
-  event_type text NOT NULL,
-  source text NOT NULL DEFAULT 'unknown',
-  payload jsonb NOT NULL DEFAULT '{}',
-  status text NOT NULL DEFAULT 'pending',
-  retry_count int NOT NULL DEFAULT 0,
-  error_message text NULL,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  processed_at timestamptz NULL
-);
+**1. Fix Delete Button** (`WeeklyScheduleManager.tsx`)
+- Make `confirmDelete` capture `deleteId` before the dialog closes by saving it in a ref or local variable
+- Increase touch target size for edit/delete buttons on shift blocks
+- Prevent edit modal from opening when clicking edit/delete icons (the `stopPropagation` exists but the parent click handler on the entire timeline area also fires)
 
-CREATE INDEX idx_webhook_events_status ON webhook_events (status);
-CREATE UNIQUE INDEX idx_webhook_events_event_id ON webhook_events (event_id);
-```
+**2. Add Task/Assignment Creation from Schedule** (`WeeklyScheduleManager.tsx`)
+- Add an "Assign Task" button alongside "Add Shift" 
+- New modal to create a task assignment: select employee, pick type (Housecleaning, Reception, Custom), set date/time, add notes
+- For housecleaning: select a room/unit to clean, auto-creates a `housekeeping_orders` entry assigned to the selected employee
+- For other tasks: creates an `employee_tasks` entry with due date and description
+- Tasks appear as colored pills on the timeline (already partially implemented)
 
-With public RLS policies (read-only for anon, full for service role via edge functions).
+**3. Show Completion Info on Task Detail** (`WeeklyScheduleManager.tsx`)
+- In the task detail dialog, show who completed the task and when (`completed_at`)
+- For housekeeping pills, show completion status (`cleaning_completed_at`, `completed_by_name`)
+- Make housekeeping pills clickable to show full details (room, status, who inspected/cleaned)
 
-### 2. Edge Function: `integration-webhook`
+**4. Enhance Task Detail Dialog** (`WeeklyScheduleManager.tsx`)
+- Add edit capability: change title, description, due date, reassign to different employee
+- Add delete capability for tasks
+- Show completion audit trail
 
-New file: `supabase/functions/integration-webhook/index.ts`
-
-- `POST` → validates payload, stores in `webhook_events` with status `pending`, returns `202 Accepted`
-- `GET` → health check
-- Signature verification placeholder (logs warning if no signature header)
-- `verify_jwt = false` in config.toml
-
-### 3. Edge Function: `process-webhook-queue`
-
-New file: `supabase/functions/process-webhook-queue/index.ts`
-
-- Fetches `pending` or `retry` events (max 10 at a time)
-- Processes each event type (new_reservation, date_change, cancellation)
-- On success: marks `processed`, updates `resort_ops_bookings` with `source`, `external_reservation_id`, `last_synced_at`, `external_data`
-- On failure: increments `retry_count`, sets `error` status if retry_count >= 3
-- Called manually from the admin dashboard or could be scheduled later
-
-### 4. Admin Integration Readiness Dashboard
-
-New file: `src/components/integration/IntegrationReadinessDashboard.tsx`
-
-- Feature-flagged: only renders when `import.meta.env.DEV` is true
-- **TEST MODE** banner at the top
-- Sections:
-  - **Webhook Events Log**: read-only table showing `webhook_events` (event_id, type, source, status, retry_count, timestamps)
-  - **Schema Status**: checks if new columns exist on `resort_ops_bookings` and `webhook_events` table exists
-  - **Simulation Tools**: buttons to send test payloads (new reservation, date change, cancellation) to the `integration-webhook` edge function
-  - **Process Queue**: button to trigger `process-webhook-queue`
-
-### 5. Wire into Admin Page (minimal, additive only)
-
-Add a new tab entry to the `CONFIG` array in `AdminPage.tsx`:
-```ts
-{ value: 'integration', label: 'Integration', perm: null }
-```
-And a corresponding `TabsContent` that renders `<IntegrationReadinessDashboard />` — only visible in dev mode. This is a 2-line additive change (array entry + TabsContent), no existing logic modified.
-
-### Files Created/Modified
-
-| File | Action |
-|------|--------|
-| `supabase/migrations/...` | Schema migration (new columns + new table) |
-| `supabase/config.toml` | Add `[functions.integration-webhook]` and `[functions.process-webhook-queue]` entries |
-| `supabase/functions/integration-webhook/index.ts` | New edge function |
-| `supabase/functions/process-webhook-queue/index.ts` | New edge function |
-| `src/components/integration/IntegrationReadinessDashboard.tsx` | New dashboard component |
-| `src/pages/AdminPage.tsx` | Add 1 tab def + 1 TabsContent render (additive only, ~4 lines) |
+### Files to Edit
+- `src/components/admin/WeeklyScheduleManager.tsx` — all changes in this single file
 
