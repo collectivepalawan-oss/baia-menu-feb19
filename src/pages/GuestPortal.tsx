@@ -1361,6 +1361,32 @@ const BillView = ({ session }: { session: GuestPortalSession }) => {
         {transactions.length === 0 && !hasPending && unpaidOrders.length === 0 && <p className="font-body text-sm text-muted-foreground text-center">No transactions yet.</p>}
       </div>
 
+      {/* Disputes */}
+      {disputes.length > 0 && (
+        <div className="space-y-2">
+          <p className="font-display text-xs tracking-wider text-amber-400 uppercase flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3" /> Bill Disputes
+          </p>
+          {disputes.map((d: any) => (
+            <div key={d.id} className={`border rounded-lg p-3 space-y-2 ${d.status === 'open' ? 'border-amber-500/40 bg-amber-500/5' : 'border-border'}`}>
+              <div className="flex items-center justify-between">
+                <Badge variant="outline" className={`text-[10px] ${d.status === 'open' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'}`}>
+                  {d.status === 'open' ? 'Under Review' : d.status === 'resolved' ? 'Resolved' : 'Dismissed'}
+                </Badge>
+                <span className="font-body text-[10px] text-muted-foreground">{new Date(d.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+              </div>
+              <p className="font-body text-sm text-foreground">{d.guest_message}</p>
+              {d.staff_response && (
+                <div className="bg-secondary rounded p-2 space-y-1">
+                  <p className="font-body text-[10px] text-muted-foreground">Response from {d.responded_by}:</p>
+                  <p className="font-body text-sm text-foreground">{d.staff_response}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Bill Agreement */}
       {(transactions.length > 0 || unpaidOrders.length > 0) && (
         <div className="border border-border rounded-lg p-4 space-y-3">
@@ -1374,12 +1400,45 @@ const BillView = ({ session }: { session: GuestPortalSession }) => {
             </div>
           ) : (
             <>
-              <p className="font-body text-xs text-muted-foreground">By tapping below, you confirm that you have reviewed all charges and agree to this bill.</p>
-              <Button onClick={handleAgree} disabled={agreeing} className="w-full font-display tracking-wider h-12">
-                {agreeing ? 'Submitting...' : '✓ I Agree to This Bill'}
-              </Button>
+              {disputes.some((d: any) => d.status === 'open') ? (
+                <p className="font-body text-xs text-amber-400">Your dispute is under review. You can agree once it's resolved.</p>
+              ) : (
+                <>
+                  <p className="font-body text-xs text-muted-foreground">By tapping below, you confirm that you have reviewed all charges and agree to this bill.</p>
+                  <Button onClick={handleAgree} disabled={agreeing} className="w-full font-display tracking-wider h-12">
+                    {agreeing ? 'Submitting...' : '✓ I Agree to This Bill'}
+                  </Button>
+                </>
+              )}
+              {!disputes.some((d: any) => d.status === 'open') && (
+                <Button variant="outline" onClick={() => setContestOpen(true)} className="w-full font-display tracking-wider h-12 border-amber-500/40 text-amber-400 hover:bg-amber-500/10">
+                  ⚠️ Contest This Bill
+                </Button>
+              )}
             </>
           )}
+        </div>
+      )}
+
+      {/* Contest Modal */}
+      {contestOpen && (
+        <div className="border border-amber-500/40 rounded-lg p-4 space-y-3 bg-amber-500/5">
+          <p className="font-display text-sm text-foreground">Contest This Bill</p>
+          <p className="font-body text-xs text-muted-foreground">Describe which charges are incorrect and why. Reception will review and respond.</p>
+          <Textarea
+            value={disputeMessage}
+            onChange={e => setDisputeMessage(e.target.value)}
+            placeholder="e.g. I was charged for Pancakes but never received them..."
+            className="bg-secondary border-border text-foreground min-h-[100px] text-base"
+          />
+          <div className="flex gap-2">
+            <Button onClick={handleContestSubmit} disabled={submittingDispute || !disputeMessage.trim()} className="flex-1 font-display tracking-wider h-10">
+              {submittingDispute ? 'Submitting...' : 'Submit Dispute'}
+            </Button>
+            <Button variant="outline" onClick={() => { setContestOpen(false); setDisputeMessage(''); }} className="font-display tracking-wider h-10">
+              Cancel
+            </Button>
+          </div>
         </div>
       )}
     </div>
