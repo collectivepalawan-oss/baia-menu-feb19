@@ -658,7 +658,48 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
         await logAudit('created', 'room_transactions', unit.id, `Early check-in fee: ₱${earlyFee.toLocaleString()} for ${guestFullName} in ${unitName}`);
       }
 
-      await logAudit('created', 'units', unit.id, `Check-in: ${checkInBooking.resort_ops_guests?.full_name} to ${unitName}${earlyFee > 0 ? ` (early fee: ₱${earlyFee})` : ''}`);
+      // ── Auto-post accommodation charge ──
+      const roomRate = Number(checkInBooking.room_rate) || 0;
+      const nights = Math.max(1, Math.ceil((new Date(checkInBooking.check_out).getTime() - new Date(checkInBooking.check_in).getTime()) / 86400000));
+      if (roomRate > 0) {
+        const accomTotal = nights * roomRate;
+        await (from('room_transactions') as any).insert({
+          unit_id: unit.id,
+          unit_name: unitName,
+          guest_name: guestFullName,
+          booking_id: checkInBooking.id,
+          transaction_type: 'accommodation',
+          amount: accomTotal,
+          tax_amount: 0,
+          service_charge_amount: 0,
+          total_amount: accomTotal,
+          payment_method: '',
+          staff_name: staffName,
+          notes: `${nights} night${nights !== 1 ? 's' : ''} × ₱${roomRate.toLocaleString()}/night`,
+        });
+
+        // For OTA/pre-paid bookings, insert pre-payment
+        const paidAmount = Number(checkInBooking.paid_amount) || 0;
+        if (paidAmount > 0) {
+          const platform = checkInBooking.platform || 'Pre-paid';
+          await (from('room_transactions') as any).insert({
+            unit_id: unit.id,
+            unit_name: unitName,
+            guest_name: guestFullName,
+            booking_id: checkInBooking.id,
+            transaction_type: 'payment',
+            amount: -paidAmount,
+            tax_amount: 0,
+            service_charge_amount: 0,
+            total_amount: -paidAmount,
+            payment_method: platform,
+            staff_name: staffName,
+            notes: `Pre-payment via ${platform}`,
+          });
+        }
+      }
+
+      await logAudit('created', 'units', unit.id, `Check-in: ${checkInBooking.resort_ops_guests?.full_name} to ${unitName}${earlyFee > 0 ? ` (early fee: ₱${earlyFee})` : ''}${roomRate > 0 ? ` — ${nights} nights × ₱${roomRate.toLocaleString()}` : ''}`);
 
       qc.invalidateQueries({ queryKey: ['rooms-bookings'] });
       qc.invalidateQueries({ queryKey: ['rooms-units'] });
@@ -725,10 +766,42 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
       });
 
       await supabase.from('units').update({ status: 'occupied' } as any).eq('id', walkInUnit.id);
-      await logAudit('created', 'units', walkInUnit.id, `Walk-in check-in: ${walkInForm.guestName.trim()} to ${walkInUnit.name}`);
+
+      // ── Auto-post accommodation charge for walk-in ──
+      const walkInRate = parseFloat(walkInForm.roomRate) || 0;
+      const walkInNights = Math.max(1, Math.ceil((new Date(walkInForm.checkOut).getTime() - new Date(walkInForm.checkIn).getTime()) / 86400000));
+      const { data: newBookings } = await from('resort_ops_bookings')
+        .select('id')
+        .eq('guest_id', gId)
+        .eq('unit_id', resortUnit.id)
+        .eq('check_in', walkInForm.checkIn)
+        .order('created_at', { ascending: false })
+        .limit(1) as any;
+      const newBookingId = newBookings?.[0]?.id || null;
+
+      if (walkInRate > 0 && newBookingId) {
+        const accomTotal = walkInNights * walkInRate;
+        await (from('room_transactions') as any).insert({
+          unit_id: walkInUnit.id,
+          unit_name: walkInUnit.name,
+          guest_name: walkInForm.guestName.trim(),
+          booking_id: newBookingId,
+          transaction_type: 'accommodation',
+          amount: accomTotal,
+          tax_amount: 0,
+          service_charge_amount: 0,
+          total_amount: accomTotal,
+          payment_method: '',
+          staff_name: staffName,
+          notes: `${walkInNights} night${walkInNights !== 1 ? 's' : ''} × ₱${walkInRate.toLocaleString()}/night`,
+        });
+      }
+
+      await logAudit('created', 'units', walkInUnit.id, `Walk-in check-in: ${walkInForm.guestName.trim()} to ${walkInUnit.name}${walkInRate > 0 ? ` — ${walkInNights} nights × ₱${walkInRate.toLocaleString()}` : ''}`);
 
       qc.invalidateQueries({ queryKey: ['rooms-bookings'] });
       qc.invalidateQueries({ queryKey: ['rooms-units'] });
+      qc.invalidateQueries({ queryKey: ['room-transactions', walkInUnit.id] });
       setWalkInOpen(false);
       setWalkInUnit(null);
       setWalkInForm({ guestName: '', checkIn: today, checkOut: '', adults: '2', children: '0', platform: 'Direct', roomRate: '0', notes: '' });
