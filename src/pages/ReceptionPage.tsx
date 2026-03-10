@@ -1194,7 +1194,7 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
             </div>
           ))}
           {pendingTourBookings.map((b: any) => (
-            <div key={b.id} className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-3 space-y-2">
+            <div key={b.id} className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-3 space-y-2 new-order-card">
               <div className="flex justify-between items-start">
                 <div>
                   <div className="flex items-center gap-2">
