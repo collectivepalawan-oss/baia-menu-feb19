@@ -57,6 +57,11 @@ const OrderType = () => {
     const finalLocation = isDineIn ? `${locationDetail} – ${tableDetail}` : locationDetail;
     const params = new URLSearchParams({ mode, orderType: selectedType, location: finalLocation });
     if (guestName.trim()) params.set('guestName', guestName.trim());
+    // Pass raw unit name separately for room linkage (DineIn combines unit + table in location)
+    const sourceTable = activeOrderType?.source_table;
+    if (sourceTable === 'units' || isDineIn) {
+      params.set('roomName', locationDetail);
+    }
     navigate(`/menu?${params.toString()}`);
   };
 

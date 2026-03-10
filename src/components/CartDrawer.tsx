@@ -254,8 +254,10 @@ const CartDrawer = ({ open, onOpenChange, mode, orderType: initialOrderType, loc
       const hasBar = orderItems.some(i => i.department === 'bar' || i.department === 'both');
 
       const staffName = isGuestOrder ? 'Guest Self-Service' : (localStorage.getItem('emp_name') || '');
-      // Always try to match location to a unit (works for Room, DineIn to a room, etc.)
-      const roomUnit = units?.find(u => u.unit_name === selectedLocation) || null;
+      // Use roomName param (raw unit name) for matching; fallback to selectedLocation for backward compat
+      const roomNameParam = searchParams.get('roomName');
+      const roomLookupName = roomNameParam || selectedLocation;
+      const roomUnit = units?.find(u => u.unit_name === roomLookupName) || null;
 
       // Auto-populate guest_name from active booking if placing order against a room
       let resolvedGuestName = guestName || '';
