@@ -197,10 +197,14 @@ const TimesheetDashboard = ({ readOnly = false }: { readOnly?: boolean }) => {
         <Button size="sm" variant="outline" className="font-display text-xs h-9" onClick={downloadCSV}>
           <Download className="h-3 w-3 mr-1" /> CSV
         </Button>
-        <Button size="sm" variant="outline" className="font-display text-xs h-9" onClick={() => fileRef.current?.click()}>
-          <Upload className="h-3 w-3 mr-1" /> Bulk
-        </Button>
-        <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleBulkUpload} />
+        {!readOnly && (
+          <>
+            <Button size="sm" variant="outline" className="font-display text-xs h-9" onClick={() => fileRef.current?.click()}>
+              <Upload className="h-3 w-3 mr-1" /> Bulk
+            </Button>
+            <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={handleBulkUpload} />
+          </>
+        )}
       </div>
 
       {/* Calculate Hours & Pay */}
