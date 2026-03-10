@@ -102,6 +102,9 @@ const AdminPage = () => {
   const allTabs = [...opsTabs, ...peopleTabs, ...cfgTabs];
   const defaultTab = allTabs[0]?.value || 'orders';
 
+  const [activeTab, setActiveTab] = useState(defaultTab);
+  const alerts = useDepartmentAlerts();
+
   const docsAllowed = docsAllowedFn();
 
   // ── Realtime ───────────────────────────────────────────────────
