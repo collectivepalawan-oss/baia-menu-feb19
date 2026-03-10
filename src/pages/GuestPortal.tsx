@@ -1041,6 +1041,18 @@ const BillView = ({ session }: { session: GuestPortalSession }) => {
     },
   });
 
+  // Completed tours
+  const { data: completedTours = [] } = useQuery({
+    queryKey: ['guest-bill-completed-tours', session.booking_id],
+    queryFn: async () => {
+      const { data } = await (supabase.from('guest_tours') as any)
+        .select('*')
+        .eq('booking_id', session.booking_id)
+        .in('status', ['completed', 'confirmed']);
+      return data || [];
+    },
+  });
+
   // Pending requests (transport, rentals)
   const { data: pendingRequests = [] } = useQuery({
     queryKey: ['guest-bill-pending-requests', session.booking_id],
@@ -1049,6 +1061,18 @@ const BillView = ({ session }: { session: GuestPortalSession }) => {
         .select('*')
         .eq('booking_id', session.booking_id)
         .eq('status', 'pending');
+      return data || [];
+    },
+  });
+
+  // Completed requests
+  const { data: completedRequests = [] } = useQuery({
+    queryKey: ['guest-bill-completed-requests', session.booking_id],
+    queryFn: async () => {
+      const { data } = await (supabase.from('guest_requests') as any)
+        .select('*')
+        .eq('booking_id', session.booking_id)
+        .eq('status', 'completed');
       return data || [];
     },
   });
