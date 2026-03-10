@@ -77,7 +77,7 @@ const OrderType = () => {
             {orderTypes.map(ot => (
               <button
                 key={ot.id}
-                onClick={() => { setSelectedType(ot.type_key); setLocationDetail(''); setGuestName(''); }}
+                onClick={() => { setSelectedType(ot.type_key); setLocationDetail(''); setTableDetail(''); setGuestName(''); }}
                 className={`min-h-[48px] py-3 border font-display text-sm tracking-wider transition-colors ${
                   selectedType === ot.type_key
                     ? 'border-gold text-foreground bg-foreground/5'
