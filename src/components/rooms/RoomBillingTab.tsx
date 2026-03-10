@@ -113,7 +113,11 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
   const totalPayments = Math.abs(payments.reduce((s, t) => s + t.total_amount, 0));
   const unpaidOrdersTotal = unpaidOrders
     .filter(o => o.payment_type !== 'Charge to Room')
-    .reduce((s, o) => s + Number(o.total || 0), 0);
+    .reduce((s, o) => s + Number(o.total || 0) + Number(o.service_charge || 0), 0);
+  const unpaidOrdersSCTotal = unpaidOrders
+    .filter(o => o.payment_type !== 'Charge to Room')
+    .reduce((s, o) => s + Number(o.service_charge || 0), 0);
+  const unpaidOrdersSubtotal = unpaidOrdersTotal - unpaidOrdersSCTotal;
   const balance = totalCharges - totalPayments + unpaidOrdersTotal;
 
   const staffName = localStorage.getItem('emp_display_name') || localStorage.getItem('emp_name') || 'Staff';
