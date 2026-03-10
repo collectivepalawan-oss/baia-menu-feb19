@@ -400,13 +400,12 @@ const ResortOpsDashboard = ({ readOnly = false }: { readOnly?: boolean }) => {
   const deleteRow = async (table: string, id: string) => {
     // If deleting a booking, reset the associated unit status
     if (table === 'resort_ops_bookings') {
-      const booking = bookings.find((b: any) => b.id === id);
+      const booking = (bookings as any[]).find((b) => b.id === id);
       if (booking?.unit_id) {
         const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
         const isActive = booking.check_in <= today && booking.check_out > today;
         if (isActive) {
-          // Find matching unit in display table and reset to ready
-          const resortUnit = units.find((u: any) => u.id === booking.unit_id);
+          const resortUnit = (units as any[]).find((u) => u.id === booking.unit_id);
           if (resortUnit) {
             const displayUnit = await supabase.from('units' as any).select('id').ilike('name', resortUnit.name.trim()).limit(1);
             const dUnit = (displayUnit.data as any)?.[0];
