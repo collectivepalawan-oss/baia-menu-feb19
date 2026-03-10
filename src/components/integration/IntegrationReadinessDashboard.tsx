@@ -150,6 +150,8 @@ const IntegrationReadinessDashboard = () => {
     return <RefreshCw className="w-3.5 h-3.5 text-muted-foreground animate-spin" />;
   };
 
+  if (!isDev) return null;
+
   return (
     <div className="space-y-4">
       {/* TEST MODE BANNER */}
