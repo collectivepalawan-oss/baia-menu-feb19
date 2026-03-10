@@ -40,6 +40,7 @@ import DepartmentOrdersView from '@/components/DepartmentOrdersView';
 
 import { deductInventoryForOrder } from '@/lib/inventoryDeduction';
 import { hasAccess, canEdit, canViewDocuments } from '@/lib/permissions';
+import { usePermissions } from '@/hooks/usePermissions';
 
 import { formatDistanceToNow } from 'date-fns';
 import { useResortProfile } from '@/hooks/useResortProfile';
