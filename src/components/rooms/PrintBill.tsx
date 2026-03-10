@@ -9,6 +9,8 @@ interface PrintBillProps {
   guestName: string | null;
   booking: any;
   transactions: RoomTransaction[];
+  roomOrders?: any[];
+  tours?: any[];
 }
 
 const PrintBill = ({ unitName, guestName, booking, transactions }: PrintBillProps) => {
