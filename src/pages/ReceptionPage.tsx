@@ -419,6 +419,9 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tour_bookings' }, () => {
         qc.invalidateQueries({ queryKey: ['reception-tour-bookings'] });
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bill_disputes' }, () => {
+        qc.invalidateQueries({ queryKey: ['reception-bill-disputes'] });
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [qc]);
