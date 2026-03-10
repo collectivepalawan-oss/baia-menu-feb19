@@ -773,9 +773,13 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
           <Button size="sm" variant="ghost" onClick={() => navigate('/')}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <div>
+          <div className="flex-1">
             <h1 className="font-display text-xl tracking-wider text-foreground">Reception</h1>
-            <p className="font-body text-xs text-muted-foreground">{format(new Date(), 'EEEE, MMM d, yyyy')}</p>
+            <p className="font-body text-xs text-muted-foreground">{manilaTime}</p>
+          </div>
+          <div className="text-right">
+            <p className="font-display text-sm text-foreground tracking-wider">🇵🇭 Manila</p>
+            <p className="font-body text-[10px] text-muted-foreground">UTC+8</p>
           </div>
         </div>
       )}
