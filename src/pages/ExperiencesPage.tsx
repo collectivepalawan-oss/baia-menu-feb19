@@ -476,7 +476,7 @@ const ExperiencesPage = ({ embedded = false }: { embedded?: boolean }) => {
         <div className="space-y-2">
           <h2 className="font-display text-xs tracking-wider text-muted-foreground uppercase">Guest Requests ({requests.length})</h2>
           {requests.slice(0, 15).map((req: any) => (
-            <div key={req.id} className="border border-border rounded-lg p-3 space-y-1">
+            <div key={req.id} className={`border rounded-lg p-3 space-y-1 ${req.status === 'pending' ? 'border-amber-500/30 bg-amber-500/5 new-order-card' : 'border-border'}`}>
               <div className="flex justify-between items-start">
                 <div>
                   <div className="flex items-center gap-2">
