@@ -1046,10 +1046,6 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
                       <UtensilsCrossed className="w-3 h-3 mr-0.5" /> Order
                     </Button>
                   )}
-                  <Button size="sm" variant="ghost" onClick={() => setBillUnitId(billUnitId === unit.id ? null : unit.id)}
-                    className="font-display text-[10px] tracking-wider min-h-[32px]">
-                    <Receipt className="w-3 h-3 mr-0.5" /> Bill {billUnitId === unit.id ? <ChevronUp className="w-3 h-3 ml-0.5" /> : <ChevronDown className="w-3 h-3 ml-0.5" />}
-                  </Button>
                    {canDoEdit && (
                      <Button size="sm" variant="outline" onClick={() => handleSendToClean(unit)}
                        disabled={sendingClean === unit.id}
@@ -1062,9 +1058,6 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
                      <Eye className="w-3 h-3 mr-0.5" /> Details
                    </Button>
                  </div>
-                 {billUnitId === unit.id && (
-                   <RoomBillingTab unit={unit} booking={booking} guestName={guest?.full_name || null} />
-                 )}
               </div>
             );
           })}
