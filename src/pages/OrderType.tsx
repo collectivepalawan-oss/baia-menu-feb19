@@ -213,21 +213,39 @@ const OrderType = () => {
             </div>
           )}
 
-          {/* Standard select (non-DineIn) */}
+          {/* Standard select (non-DineIn) with tiles for tables, dropdown for units */}
           {activeOrderType && !isDineIn && activeOrderType.input_mode === 'select' && activeOrderType.source_table && (
             <div className="space-y-3">
-              <Select onValueChange={setLocationDetail} value={locationDetail}>
-                <SelectTrigger className="bg-secondary border-border text-foreground font-body">
-                  <SelectValue placeholder={activeOrderType.placeholder || 'Select'} />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
+              {activeOrderType.source_table === 'resort_tables' ? (
+                <div className="grid grid-cols-3 gap-2">
                   {getSelectOptions(activeOrderType.source_table).map(item => (
-                    <SelectItem key={item.id} value={item.name} className="text-foreground font-body">
+                    <button
+                      key={item.id}
+                      onClick={() => setLocationDetail(item.name)}
+                      className={`min-h-[48px] py-3 border font-display text-sm tracking-wider transition-colors rounded ${
+                        locationDetail === item.name
+                          ? 'border-gold text-foreground bg-foreground/5'
+                          : 'border-border text-cream-dim hover:border-foreground/30'
+                      }`}
+                    >
                       {item.name}
-                    </SelectItem>
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              ) : (
+                <Select onValueChange={setLocationDetail} value={locationDetail}>
+                  <SelectTrigger className="bg-secondary border-border text-foreground font-body">
+                    <SelectValue placeholder={activeOrderType.placeholder || 'Select'} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    {getSelectOptions(activeOrderType.source_table).map(item => (
+                      <SelectItem key={item.id} value={item.name} className="text-foreground font-body">
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Input
                 placeholder="Guest name (optional)"
                 value={guestName}
