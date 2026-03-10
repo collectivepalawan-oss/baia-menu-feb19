@@ -11,14 +11,22 @@ import {
 } from './calendarUtils';
 import AddReservationModal from './AddReservationModal';
 
+interface UnitWithStatus {
+  id: string;
+  unit_name?: string;
+  name?: string;
+  status?: string;
+}
+
 interface ReceptionCalendarProps {
   bookings: BookingWithGuest[];
   rooms: ResortUnit[];
+  units: UnitWithStatus[];
   canEdit: boolean;
   canManage: boolean;
 }
 
-const ReceptionCalendar = ({ bookings, rooms, canEdit, canManage }: ReceptionCalendarProps) => {
+const ReceptionCalendar = ({ bookings, rooms, units, canEdit, canManage }: ReceptionCalendarProps) => {
   const [view, setView] = useState<CalendarView>('week');
   const [refDate, setRefDate] = useState(new Date());
   const [addOpen, setAddOpen] = useState(false);
@@ -27,11 +35,23 @@ const ReceptionCalendar = ({ bookings, rooms, canEdit, canManage }: ReceptionCal
   const { start, end } = useMemo(() => getDateRange(refDate, view), [refDate, view]);
   const days = useMemo(() => getDaysInRange(start, end), [start, end]);
 
+  // Build unit status lookup: resort_ops_unit_id → status from units table (by matching name)
+  const unitStatusMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const room of rooms) {
+      const matchingUnit = units.find(u => (u.name || u.unit_name || '') === room.name);
+      if (matchingUnit?.status) map[room.id] = matchingUnit.status;
+    }
+    return map;
+  }, [rooms, units]);
+
   // Filter bookings that overlap the visible range
   const visibleBookings = useMemo(() =>
     bookings.filter(b => bookingOverlapsRange(b, start, end)),
     [bookings, start, end]
   );
+
+  const getUnitStatusForBooking = (b: BookingWithGuest) => b.unit_id ? unitStatusMap[b.unit_id] : undefined;
 
   const navigate = (dir: 'prev' | 'next') => {
     setRefDate(d => {
@@ -58,7 +78,7 @@ const ReceptionCalendar = ({ bookings, rooms, canEdit, canManage }: ReceptionCal
   };
 
   const renderBookingChip = (b: BookingWithGuest, showRoom = true) => {
-    const status = getBookingStatus(b);
+    const status = getBookingStatus(b, getUnitStatusForBooking(b));
     const colors = statusColors[status];
     const isCheckIn = (date: Date) => isSameDay(date, parseISO(b.check_in));
     const isCheckOut = (date: Date) => isSameDay(date, parseISO(b.check_out));
@@ -97,7 +117,7 @@ const ReceptionCalendar = ({ bookings, rooms, canEdit, canManage }: ReceptionCal
               <p className="text-[11px] text-muted-foreground font-body italic">No bookings</p>
             )}
             {dayBookings.map(b => {
-              const status = getBookingStatus(b);
+              const status = getBookingStatus(b, getUnitStatusForBooking(b));
               const colors = statusColors[status];
               const guestName = b.platform === 'Maintenance' ? '🔧 Maintenance' : (b.resort_ops_guests?.full_name || 'No name');
               const isCI = isSameDay(day, parseISO(b.check_in));
@@ -111,8 +131,8 @@ const ReceptionCalendar = ({ bookings, rooms, canEdit, canManage }: ReceptionCal
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-body text-sm truncate">{guestName}</span>
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      {isCI && <Badge variant="outline" className="text-[9px] py-0 border-emerald-500/40 text-emerald-400">IN</Badge>}
-                      {isCO && <Badge variant="outline" className="text-[9px] py-0 border-amber-500/40 text-amber-400">OUT</Badge>}
+                      {isCI && <Badge variant="outline" className="text-[9px] py-0 border-blue-500/40 text-blue-400">IN</Badge>}
+                      {isCO && <Badge variant="outline" className="text-[9px] py-0 border-muted-foreground/40 text-muted-foreground">OUT</Badge>}
                     </div>
                   </div>
                   <p className="font-body text-[11px] opacity-70 mt-0.5">
@@ -237,9 +257,10 @@ const ReceptionCalendar = ({ bookings, rooms, canEdit, canManage }: ReceptionCal
 
       {/* Legend */}
       <div className="flex flex-wrap gap-3 text-[10px] font-body text-muted-foreground">
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/50" /> Confirmed</span>
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-amber-500/50" /> Pending</span>
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-destructive/50" /> Maintenance</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-blue-500/50" /> Occupied</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-amber-500/50" /> Upcoming</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-muted/50" /> Checked Out</span>
+        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-destructive/50" /> Blocked</span>
       </div>
 
       {/* Views */}
