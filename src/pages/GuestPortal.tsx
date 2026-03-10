@@ -967,6 +967,25 @@ const getBillIcon = (notes: string | null, txType: string) => {
 
 const BillView = ({ session }: { session: GuestPortalSession }) => {
   const qc = useQueryClient();
+  const [agreeing, setAgreeing] = useState(false);
+
+  // Check if guest already agreed
+  const { data: bookingData, refetch: refetchBooking } = useQuery({
+    queryKey: ['guest-bill-agreement', session.booking_id],
+    queryFn: async () => {
+      const { data } = await supabase.from('resort_ops_bookings').select('bill_agreed_at').eq('id', session.booking_id).maybeSingle();
+      return data as any;
+    },
+  });
+  const billAgreedAt = bookingData?.bill_agreed_at;
+
+  const handleAgree = async () => {
+    setAgreeing(true);
+    await (supabase.from('resort_ops_bookings') as any).update({ bill_agreed_at: new Date().toISOString() }).eq('id', session.booking_id);
+    await refetchBooking();
+    setAgreeing(false);
+    toast.success('Bill agreed! Reception has been notified.');
+  };
 
   const { data: transactions = [] } = useQuery({
     queryKey: ['guest-bill', session.booking_id, session.room_id],
@@ -1189,6 +1208,28 @@ const BillView = ({ session }: { session: GuestPortalSession }) => {
         ))}
         {transactions.length === 0 && !hasPending && unpaidOrders.length === 0 && <p className="font-body text-sm text-muted-foreground text-center">No transactions yet.</p>}
       </div>
+
+      {/* Bill Agreement */}
+      {(transactions.length > 0 || unpaidOrders.length > 0) && (
+        <div className="border border-border rounded-lg p-4 space-y-3">
+          {billAgreedAt ? (
+            <div className="flex items-center gap-2 text-emerald-400">
+              <CheckCircle2 className="w-5 h-5" />
+              <div>
+                <p className="font-display text-sm">Bill Reviewed & Agreed</p>
+                <p className="font-body text-xs text-muted-foreground">{new Date(billAgreedAt).toLocaleString()}</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="font-body text-xs text-muted-foreground">By tapping below, you confirm that you have reviewed all charges and agree to this bill.</p>
+              <Button onClick={handleAgree} disabled={agreeing} className="w-full font-display tracking-wider h-12">
+                {agreeing ? 'Submitting...' : '✓ I Agree to This Bill'}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };
