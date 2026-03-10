@@ -10,6 +10,7 @@ import ExperiencesHome from '@/components/staff/ExperiencesHome';
 import StaffOrderHome from '@/components/staff/StaffOrderHome';
 import ActionRequiredPanel from '@/components/staff/ActionRequiredPanel';
 import StaffNavBar from '@/components/StaffNavBar';
+import { useDepartmentAlerts } from '@/hooks/useDepartmentAlerts';
 
 interface RoleDef {
   key: string;
