@@ -325,6 +325,10 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
                 <p className="font-body text-xs text-foreground">
                   {items.map((i: any) => `${i.qty || 1}× ${i.name}`).join(', ')}
                 </p>
+                {/* Service charge breakdown */}
+                <div className="font-body text-[10px] text-muted-foreground">
+                  Subtotal: ₱{Number(o.total || 0).toLocaleString()} · SC 10%: ₱{Number(o.service_charge || 0).toLocaleString()} · <span className="text-foreground font-medium">Total: ₱{(Number(o.total || 0) + Number(o.service_charge || 0)).toLocaleString()}</span>
+                </div>
                 <div className="flex items-center justify-between">
                   {isEditing ? (
                     <div className="flex items-center gap-1">
