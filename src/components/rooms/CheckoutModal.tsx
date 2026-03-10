@@ -10,6 +10,7 @@ import { logAudit } from '@/lib/auditLog';
 import { openWhatsApp } from '@/lib/messenger';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 import type { RoomTransaction } from '@/hooks/useRoomTransactions';
 
 interface CheckoutModalProps {
@@ -32,9 +33,10 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
   const [paymentAmount, setPaymentAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [selectedHousekeeper, setSelectedHousekeeper] = useState('');
+  const [overrideChecklist, setOverrideChecklist] = useState(false);
 
-  // Fetch all non-paid orders for this room (to be settled at checkout)
-  const { data: unpaidOrders = [], refetch: refetchUnpaid } = useQuery({
+  // Fetch all non-paid orders for this room
+  const { data: unpaidOrders = [] } = useQuery({
     queryKey: ['checkout-unpaid-orders', unitId],
     enabled: open && !!unitId,
     queryFn: async () => {
@@ -45,6 +47,72 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
         .in('status', ['New', 'Preparing', 'Ready', 'Served'])
         .order('created_at', { ascending: false });
       return data || [];
+    },
+  });
+
+  // Check for unserved orders (not yet "Served")
+  const { data: unservedOrders = [] } = useQuery({
+    queryKey: ['checkout-unserved-orders', unitId],
+    enabled: open && !!unitId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('orders')
+        .select('id, status')
+        .eq('room_id', unitId)
+        .in('status', ['New', 'Preparing', 'Ready']);
+      return data || [];
+    },
+  });
+
+  // Check incomplete tours
+  const { data: incompleteTours = [] } = useQuery({
+    queryKey: ['checkout-incomplete-tours', bookingId],
+    enabled: open && !!bookingId,
+    queryFn: async () => {
+      const { data } = await (supabase.from('guest_tours') as any)
+        .select('id, tour_name, status')
+        .eq('booking_id', bookingId)
+        .in('status', ['booked', 'confirmed']);
+      return data || [];
+    },
+  });
+
+  // Check incomplete requests
+  const { data: incompleteRequests = [] } = useQuery({
+    queryKey: ['checkout-incomplete-requests', bookingId],
+    enabled: open && !!bookingId,
+    queryFn: async () => {
+      const { data } = await (supabase.from('guest_requests') as any)
+        .select('id, request_type, status')
+        .eq('booking_id', bookingId)
+        .in('status', ['pending', 'confirmed']);
+      return data || [];
+    },
+  });
+
+  // Check housekeeping clearance
+  const { data: hkOrder } = useQuery({
+    queryKey: ['checkout-hk-clearance', unitName],
+    enabled: open && !!unitName,
+    queryFn: async () => {
+      const { data } = await (supabase.from('housekeeping_orders') as any)
+        .select('id, status, damage_notes')
+        .eq('unit_name', unitName)
+        .neq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data as any;
+    },
+  });
+
+  // Check guest bill agreement
+  const { data: billAgreement } = useQuery({
+    queryKey: ['checkout-bill-agreement', bookingId],
+    enabled: open && !!bookingId,
+    queryFn: async () => {
+      const { data } = await supabase.from('resort_ops_bookings').select('bill_agreed_at').eq('id', bookingId!).maybeSingle();
+      return data as any;
     },
   });
 
@@ -76,6 +144,13 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
 
   const nights = booking ? Math.max(1, Math.ceil((new Date(booking.check_out).getTime() - new Date(booking.check_in).getTime()) / 86400000)) : 0;
   const roomRate = booking ? Number(booking.room_rate) : 0;
+
+  // Checklist items
+  const allOrdersServed = unservedOrders.length === 0;
+  const allToursCompleted = incompleteTours.length === 0;
+  const allRequestsCompleted = incompleteRequests.length === 0;
+  const guestAgreed = !!billAgreement?.bill_agreed_at;
+  const checklistPassed = allOrdersServed && allToursCompleted && allRequestsCompleted;
 
   const handleCheckout = async () => {
     setSubmitting(true);
@@ -182,6 +257,7 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
       setSubmitting(false);
     }
   };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-card border-border max-w-lg max-h-[85vh] overflow-y-auto">
@@ -189,7 +265,24 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
           <DialogTitle className="font-display tracking-wider">Checkout — {unitName}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          {/* Unpaid F&B Orders — included in final settlement */}
+
+          {/* ── Pre-Checkout Checklist ── */}
+          <div className="border border-border rounded-lg p-3 space-y-2">
+            <p className="font-display text-xs tracking-wider text-muted-foreground uppercase">Pre-Checkout Checklist</p>
+            <ChecklistItem ok={allOrdersServed} label="All orders served & settled" detail={!allOrdersServed ? `${unservedOrders.length} order(s) not yet served` : undefined} />
+            <ChecklistItem ok={allToursCompleted} label="Tours & experiences completed" detail={!allToursCompleted ? `${incompleteTours.length} tour(s) still active` : undefined} />
+            <ChecklistItem ok={allRequestsCompleted} label="Guest requests completed" detail={!allRequestsCompleted ? `${incompleteRequests.length} request(s) still active` : undefined} />
+            <ChecklistItem ok={guestAgreed} label="Guest reviewed & agreed to bill" detail={guestAgreed ? `Agreed ${new Date(billAgreement.bill_agreed_at).toLocaleString()}` : 'Not yet agreed on portal'} isWarning />
+
+            {!checklistPassed && !overrideChecklist && (
+              <Button size="sm" variant="outline" onClick={() => setOverrideChecklist(true)}
+                className="font-display text-xs tracking-wider w-full mt-2">
+                <AlertTriangle className="w-3.5 h-3.5 mr-1" /> Override & Continue
+              </Button>
+            )}
+          </div>
+
+          {/* Unpaid F&B Orders */}
           {unpaidOrders.length > 0 && (
             <div className="border border-amber-500/30 bg-amber-500/5 rounded-lg p-3 space-y-2">
               <p className="font-display text-xs tracking-wider text-amber-400 uppercase flex items-center gap-1">
@@ -321,7 +414,7 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
           <Button variant="outline" onClick={() => onOpenChange(false)} className="font-display text-xs tracking-wider">Cancel</Button>
           <Button 
             onClick={handleCheckout} 
-            disabled={submitting} 
+            disabled={submitting || (!checklistPassed && !overrideChecklist)} 
             variant="destructive" 
             className="font-display text-xs tracking-wider"
           >
@@ -332,5 +425,22 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
     </Dialog>
   );
 };
+
+/** Checklist row */
+const ChecklistItem = ({ ok, label, detail, isWarning }: { ok: boolean; label: string; detail?: string; isWarning?: boolean }) => (
+  <div className="flex items-start gap-2">
+    {ok ? (
+      <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
+    ) : isWarning ? (
+      <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+    ) : (
+      <XCircle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+    )}
+    <div>
+      <p className={`font-body text-xs ${ok ? 'text-foreground' : isWarning ? 'text-amber-400' : 'text-destructive'}`}>{label}</p>
+      {detail && <p className="font-body text-[10px] text-muted-foreground">{detail}</p>}
+    </div>
+  </div>
+);
 
 export default CheckoutModal;
