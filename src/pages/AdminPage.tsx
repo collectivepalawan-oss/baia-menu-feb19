@@ -696,9 +696,7 @@ const AdminPage = () => {
           {/* HOUSEKEEPING TAB */}
           {(isAdmin || hasAccess(perms, 'housekeeping')) && (
             <TabsContent value="housekeeping">
-              <div className={readOnly('housekeeping') ? 'pointer-events-none opacity-70' : ''}>
-                <HousekeepingConfig />
-              </div>
+              <HousekeepingConfig readOnly={readOnly('housekeeping')} />
             </TabsContent>
           )}
 
