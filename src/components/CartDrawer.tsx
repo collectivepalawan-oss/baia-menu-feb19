@@ -254,8 +254,10 @@ const CartDrawer = ({ open, onOpenChange, mode, orderType: initialOrderType, loc
       const hasBar = orderItems.some(i => i.department === 'bar' || i.department === 'both');
 
       const staffName = isGuestOrder ? 'Guest Self-Service' : (localStorage.getItem('emp_name') || '');
-      // Always try to match location to a unit (works for Room, DineIn to a room, etc.)
-      const roomUnit = units?.find(u => u.unit_name === selectedLocation) || null;
+      // Use roomName param (raw unit name) for matching; fallback to selectedLocation for backward compat
+      const roomNameParam = searchParams.get('roomName');
+      const roomLookupName = roomNameParam || selectedLocation;
+      const roomUnit = units?.find(u => u.unit_name === roomLookupName) || null;
 
       // Auto-populate guest_name from active booking if placing order against a room
       let resolvedGuestName = guestName || '';
@@ -285,13 +287,19 @@ const CartDrawer = ({ open, onOpenChange, mode, orderType: initialOrderType, loc
         service_charge_amount: serviceCharge,
       };
 
+      // Auto-default to "Charge to Room" for room-linked order types (DineIn guest, RoomDelivery, etc.)
+      const roomLinkedTypes = ['DineIn', 'RoomDelivery', 'FriendsFamily'];
+      const resolvedPayment = (roomUnit && roomLinkedTypes.includes(selectedOrderType) && !paymentType)
+        ? 'Charge to Room'
+        : paymentType;
+
       const insertData: any = {
         order_type: selectedOrderType,
         location_detail: selectedLocation,
         items: orderItems,
         total: subtotal,
         service_charge: serviceCharge,
-        payment_type: (isStaff || isGuestOrder) ? paymentType : '',
+        payment_type: (isStaff || isGuestOrder) ? resolvedPayment : '',
         status: 'New',
         tab_id: tabId,
         kitchen_status: hasKitchen ? 'pending' : 'ready',
@@ -306,7 +314,7 @@ const CartDrawer = ({ open, onOpenChange, mode, orderType: initialOrderType, loc
       const { data: orderRow } = await supabase.from('orders').insert(insertData).select('id').single();
 
       // Auto-create room_transaction when "Charge to Room"
-      if ((paymentType === 'Charge to Room' || isGuestOrder) && roomUnit && orderRow) {
+      if ((resolvedPayment === 'Charge to Room' || isGuestOrder) && roomUnit && orderRow) {
         await (supabase.from('room_transactions' as any) as any).insert({
           unit_id: roomUnit.id,
           unit_name: selectedLocation,

@@ -1,38 +1,37 @@
 
 
-## Wire DineIn / Friends&Family / Room Delivery Orders to Guest Billing
+## Plan: Fix Schedule Delete & Enhance Task/Assignment Scheduling
 
-### Problem
-When staff selects "Dine-In Guest" with a unit (e.g., "Double Room #3") and table (e.g., "Table 2"), the system combines them into `"Double Room #3 – Table 2"` as the `location_detail`. In CartDrawer, the room linkage code tries `units.find(u => u.unit_name === selectedLocation)` — this fails because `selectedLocation` is the combined string, not the raw unit name. Result: `room_id` is null, guest portal never shows these orders, and no room transaction is created.
+### Issues Found
 
-The same applies to "Friends&Family staying" and "Room Delivery" — any order type that maps to a unit needs to reliably link to the guest's room.
+1. **Delete button bug**: The trash icon on shift blocks triggers `setDeleteId(s.id)`, but the parent div's `onClick={() => openEdit(s)}` fires simultaneously despite `stopPropagation`. On mobile, the tiny button (3x3 icon) is nearly impossible to tap. The AlertDialog `onOpenChange={() => setDeleteId(null)}` also races with the confirm action.
 
-### Solution
+2. **Missing scheduling features**: The schedule only manages time shifts. There's no way to assign tasks like housecleaning, reception duty, or track completion from within the schedule view.
 
-**1. Pass `roomName` as a separate URL parameter** (`src/pages/OrderType.tsx`)
-- For DineIn: pass `roomName=Double Room #3` separately, keep `location=Double Room #3 – Table 2` for display
-- For all unit-based order types (RoomDelivery, FriendsFamily, Room): pass `roomName` = the selected unit name
-- This decouples the display location from the room linkage
+### Changes
 
-**2. Use `roomName` for room matching in CartDrawer** (`src/components/CartDrawer.tsx`)
-- Read `roomName` from search params (fallback to `selectedLocation` for backward compatibility)
-- Use `roomName` instead of `selectedLocation` in the `units.find()` lookup on line 258
-- This ensures `room_id` is always set correctly for unit-linked orders
-- Guest name auto-population from active booking will also work correctly
+**1. Fix Delete Button** (`WeeklyScheduleManager.tsx`)
+- Make `confirmDelete` capture `deleteId` before the dialog closes by saving it in a ref or local variable
+- Increase touch target size for edit/delete buttons on shift blocks
+- Prevent edit modal from opening when clicking edit/delete icons (the `stopPropagation` exists but the parent click handler on the entire timeline area also fires)
 
-**3. Auto-set payment type for room-linked orders** (`src/components/CartDrawer.tsx`)
-- When a room is matched and the order type is DineIn/FriendsFamily/RoomDelivery, default payment to "Charge to Room" (staff can override)
+**2. Add Task/Assignment Creation from Schedule** (`WeeklyScheduleManager.tsx`)
+- Add an "Assign Task" button alongside "Add Shift" 
+- New modal to create a task assignment: select employee, pick type (Housecleaning, Reception, Custom), set date/time, add notes
+- For housecleaning: select a room/unit to clean, auto-creates a `housekeeping_orders` entry assigned to the selected employee
+- For other tasks: creates an `employee_tasks` entry with due date and description
+- Tasks appear as colored pills on the timeline (already partially implemented)
 
-### Flow After Fix
-```text
-Staff selects "Dine-In Guest" → picks "Double Room #3" + "Table 2" + "Le"
-  → URL: /menu?orderType=DineIn&location=Double Room #3 – Table 2&roomName=Double Room #3&guestName=Le
-  → CartDrawer matches roomName → finds unit → sets room_id ✓
-  → Creates room_transaction → appears on guest portal bill ✓
-  → Guest sees order in real-time on their portal ✓
-```
+**3. Show Completion Info on Task Detail** (`WeeklyScheduleManager.tsx`)
+- In the task detail dialog, show who completed the task and when (`completed_at`)
+- For housekeeping pills, show completion status (`cleaning_completed_at`, `completed_by_name`)
+- Make housekeeping pills clickable to show full details (room, status, who inspected/cleaned)
+
+**4. Enhance Task Detail Dialog** (`WeeklyScheduleManager.tsx`)
+- Add edit capability: change title, description, due date, reassign to different employee
+- Add delete capability for tasks
+- Show completion audit trail
 
 ### Files to Edit
-1. `src/pages/OrderType.tsx` — Pass `roomName` param for all unit-linked order types
-2. `src/components/CartDrawer.tsx` — Read `roomName` param, use it for room matching instead of `selectedLocation`
+- `src/components/admin/WeeklyScheduleManager.tsx` — all changes in this single file
 
