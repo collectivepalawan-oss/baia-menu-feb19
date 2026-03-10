@@ -369,6 +369,76 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
 
   const pendingRequests = guestRequests.filter((r: any) => r.status === 'pending');
   const pendingTourBookings = tourBookings.filter((b: any) => b.status === 'pending');
+  const hasPendingAlerts = pendingRequests.length > 0 || pendingTourBookings.length > 0;
+
+  // ── AUDIO CHIME for pending requests/tours ──
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const audioUnlockedRef = useRef(false);
+
+  const playChime = useCallback(() => {
+    const ctx = audioCtxRef.current;
+    if (!ctx || ctx.state !== 'running') return;
+    const now = ctx.currentTime;
+    [880, 1100].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.35, now + i * 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.4);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now + i * 0.15);
+      osc.stop(now + i * 0.15 + 0.4);
+    });
+  }, []);
+
+  // Unlock AudioContext on first user interaction
+  useEffect(() => {
+    const unlock = async () => {
+      if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+      if (audioCtxRef.current.state === 'suspended') {
+        try { await audioCtxRef.current.resume(); } catch {}
+      }
+      if (audioCtxRef.current.state === 'running') {
+        audioUnlockedRef.current = true;
+        document.removeEventListener('click', unlock);
+        document.removeEventListener('touchstart', unlock);
+      }
+    };
+    document.addEventListener('click', unlock, { once: false });
+    document.addEventListener('touchstart', unlock, { once: false });
+    return () => {
+      document.removeEventListener('click', unlock);
+      document.removeEventListener('touchstart', unlock);
+    };
+  }, []);
+
+  // Repeating chime when pending items exist
+  useEffect(() => {
+    if (!hasPendingAlerts) return;
+    if (audioUnlockedRef.current) playChime();
+    const iv = setInterval(() => {
+      if (audioUnlockedRef.current) playChime();
+    }, 5000);
+    return () => clearInterval(iv);
+  }, [hasPendingAlerts, playChime]);
+
+  // Realtime subscriptions for guest_requests and tour_bookings
+  useEffect(() => {
+    const channel = supabase
+      .channel('reception-alerts-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'guest_requests' }, () => {
+        qc.invalidateQueries({ queryKey: ['reception-guest-requests'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'guest_tours' }, () => {
+        qc.invalidateQueries({ queryKey: ['reception-tours-today'] });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tour_bookings' }, () => {
+        qc.invalidateQueries({ queryKey: ['reception-tour-bookings'] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [qc]);
 
   const statusColor = (status: string) => {
     switch (status) {
