@@ -352,7 +352,7 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
 
   const pendingRequests = guestRequests.filter((r: any) => r.status === 'pending');
   const pendingTourBookings = tourBookings.filter((b: any) => b.status === 'pending');
-  const hasPendingAlerts = pendingRequests.length > 0 || pendingTourBookings.length > 0;
+  const hasPendingAlerts = pendingRequests.length > 0 || pendingTourBookings.length > 0 || allDisputes.length > 0;
 
   // ── AUDIO CHIME for pending requests/tours ──
   const audioCtxRef = useRef<AudioContext | null>(null);
