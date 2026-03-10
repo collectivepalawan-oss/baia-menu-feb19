@@ -1231,6 +1231,12 @@ const RoomsDashboard = ({ readOnly = false, canViewDocuments = true, initialUnit
                             <SelectItem value="cancelled">Cancelled</SelectItem>
                           </SelectContent>
                         </Select>
+                        {tour.status === 'confirmed' && (
+                          <Button size="sm" variant="secondary" onClick={() => updateTourStatus(tour.id, 'completed')}
+                            className="h-7 text-xs font-display tracking-wider px-2">
+                            ✓ Done
+                          </Button>
+                        )}
                         <Button size="sm" variant="ghost" onClick={() => deleteTour(tour.id)}>
                           <Trash2 className="w-3.5 h-3.5 text-destructive" />
                         </Button>
