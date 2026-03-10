@@ -47,18 +47,6 @@ import { useResortProfile } from '@/hooks/useResortProfile';
 
 type DateFilter = 'today' | 'yesterday' | 'all';
 
-// ── Session helpers ──────────────────────────────────────────────
-const SESSION_KEY = 'staff_home_session';
-const getSession = () => {
-  try {
-    const stored = sessionStorage.getItem(SESSION_KEY);
-    if (stored) {
-      const s = JSON.parse(stored);
-      if (s.expiresAt > Date.now()) return s;
-    }
-  } catch {}
-  return null;
-};
 
 // ── Tab / section definitions ────────────────────────────────────
 interface TabDef { value: string; label: string; perm: string | null }
