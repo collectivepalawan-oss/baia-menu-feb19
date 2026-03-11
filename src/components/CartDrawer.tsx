@@ -185,11 +185,7 @@ const CartDrawer = ({ open, onOpenChange, mode, orderType: initialOrderType, loc
       toast.error('Please select order type and location');
       return;
     }
-    const skipPayment = selectedOrderType === 'WalkIn' || selectedOrderType === 'DineIn';
-    if (isStaff && !paymentType && !skipPayment) {
-      toast.error('Please select a payment type');
-      return;
-    }
+    // Payment type is now set by the cashier at settlement time, not at order placement
     if (isGuestOrder && !paymentType) {
       setPaymentType('Charge to Room');
     }
