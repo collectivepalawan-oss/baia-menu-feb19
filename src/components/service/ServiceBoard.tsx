@@ -238,7 +238,7 @@ const ServiceBoard = ({ department }: ServiceBoardProps) => {
       {/* Kanban columns — horizontal on tablet, vertical on phone */}
       <div className="flex-1 overflow-auto">
         {/* Tablet/Desktop: horizontal kanban */}
-        <div className="hidden md:grid md:grid-cols-3 gap-3 p-4">
+        <div className={`hidden md:grid gap-3 p-4 ${department === 'reception' ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
           {KANBAN_COLS.map(col => (
             <div key={col} className={`flex flex-col border-t-4 ${COL_COLORS[col]} rounded-t-lg bg-secondary/30`}>
               <div className="px-3 py-2 flex items-center justify-between">
