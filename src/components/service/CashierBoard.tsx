@@ -170,7 +170,7 @@ const CashierBoard = () => {
       if (!kitchenItems || order.kitchen_status === 'ready') updateData.status = 'Ready';
     } else if (action === 'mark-served') {
       updateData.status = 'Served';
-      if (order.payment_type === 'Charge to Room' || order.tab_id) {
+      if ((order.payment_type === 'Charge to Room' && order.room_id) || order.tab_id) {
         updateData.status = 'Paid';
         updateData.closed_at = new Date().toISOString();
       }
