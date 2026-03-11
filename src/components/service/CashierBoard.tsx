@@ -228,7 +228,7 @@ const CashierBoard = () => {
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 md:overflow-y-auto">
           {/* Bill Out section — priority */}
           {buckets.billOut.length > 0 && (
             <div className="p-3">
