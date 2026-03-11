@@ -326,7 +326,7 @@ const OrderRow = ({ order, selected, onSelect, onAction }: {
   return (
     <div
       onClick={onSelect}
-      className={`rounded-xl border border-border/60 border-l-4 ${statusColor} p-3 transition-all cursor-pointer active:scale-[0.98] ${
+      className={`rounded-xl border border-border/60 border-l-4 ${statusColor} p-3 transition-all cursor-pointer active:scale-[0.98] overflow-hidden min-w-0 ${
         isPaid ? 'opacity-70 hover:opacity-90' : ''
       } ${selected ? 'ring-2 ring-gold bg-gold/5' : 'bg-card/90'}`}
     >
