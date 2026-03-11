@@ -17,6 +17,22 @@ function formatCurrency(amount: number): string {
   return `P${amount.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+function loadImageAsBase64(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext('2d')!.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 export async function generateInvoicePdf(
   order: InvoiceOrder,
   profile: ResortProfile | null,

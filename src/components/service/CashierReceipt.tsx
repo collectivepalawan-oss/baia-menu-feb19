@@ -138,6 +138,7 @@ ${footerText ? `<p class="center small">${footerText}</p>` : ''}
       {/* On-screen receipt preview */}
       <div className="w-full max-w-sm bg-card border border-border rounded-xl p-5 space-y-3 font-body text-sm">
         <div className="text-center space-y-1">
+          {profile?.logo_url && <img src={profile.logo_url} alt="" className="mx-auto mb-1" style={{ maxHeight: profile?.logo_size || 64 }} />}
           <p className="font-display text-lg tracking-wider text-foreground">{profile?.resort_name || 'RESORT'}</p>
           {profile?.tagline && <p className="text-xs text-muted-foreground">{profile.tagline}</p>}
           <p className="text-xs text-muted-foreground">{format(new Date(order.created_at), 'MMM d, yyyy h:mm a')}</p>
