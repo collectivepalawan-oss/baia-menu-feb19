@@ -323,7 +323,7 @@ const CashierBoard = () => {
             onPreviewReceipt={() => setReceiptOrder(selectedOrder)}
           />
         ) : (
-          <DailySummary completed={buckets.completed} />
+          <DailySummary completed={completedOrders} />
         )}
       </div>
     </div>
