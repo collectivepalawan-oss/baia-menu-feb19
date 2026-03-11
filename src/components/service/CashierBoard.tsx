@@ -243,20 +243,15 @@ const CashierBoard = () => {
         </div>
 
         <div className="flex-1 md:overflow-y-auto">
-          {/* Bill Out section — priority */}
+          {/* Bill Out section — grouped by room */}
           {buckets.billOut.length > 0 && (
             <div className="p-3">
               <h3 className="font-display text-xs tracking-wider text-amber-400 mb-2 px-1">💰 BILL OUT — Awaiting Payment</h3>
-              <div className="space-y-2">
-                {buckets.billOut.map(order => (
-                  <OrderRow
-                    key={order.id}
-                    order={order}
-                    selected={selectedOrder?.id === order.id}
-                    onSelect={() => handleOrderSelect(order)}
-                  />
-                ))}
-              </div>
+              <GroupedBillOut
+                orders={buckets.billOut}
+                selectedOrderId={selectedOrder?.id}
+                onSelect={handleOrderSelect}
+              />
             </div>
           )}
 
