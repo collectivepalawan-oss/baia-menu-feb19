@@ -352,8 +352,11 @@ const OrderRow = ({ order, selected, onSelect, onAction }: {
 
         <div className="flex-1" />
 
-        <Badge variant="outline" className="font-body text-[10px] h-5">
-          {order.status}
+        <Badge variant="outline" className={`font-body text-[10px] h-5 ${
+          isRoomCharge ? 'border-blue-400/50 text-blue-400' :
+          isPendingPayment ? 'border-amber-400/50 text-amber-400' : ''
+        }`}>
+          {isRoomCharge && isPaid ? 'Room Charge' : isPendingPayment ? 'Pending Payment' : order.status}
         </Badge>
 
         <span className="font-display text-sm text-gold tabular-nums">₱{order.total.toLocaleString()}</span>
