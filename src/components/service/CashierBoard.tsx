@@ -601,7 +601,7 @@ const DailySummary = ({ completed }: { completed: any[] }) => {
           <div className="space-y-2">
             <p className="font-display text-xs tracking-wider text-muted-foreground">BREAKDOWN BY METHOD</p>
             <div className="space-y-1">
-              {sortedMethods.map(([method, data]) => (
+              {sortedMethods.filter(([m]) => m !== 'Charge to Room').map(([method, data]) => (
                 <div key={method} className={`flex items-center justify-between rounded-lg px-3 py-2 ${method === 'Cash' ? 'bg-gold/5' : 'bg-secondary/50'}`}>
                   <div className="flex items-center gap-2">
                     <span className={`font-body text-sm ${method === 'Cash' ? 'text-gold font-semibold' : 'text-foreground'}`}>{method}</span>
