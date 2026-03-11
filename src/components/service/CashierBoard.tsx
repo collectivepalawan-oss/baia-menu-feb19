@@ -48,7 +48,7 @@ const CashierBoard = () => {
     return () => { supabase.removeChannel(channel); };
   }, [qc]);
 
-  // Fetch today's orders
+  // Fetch today's orders (active)
   const { data: orders = [] } = useQuery({
     queryKey: ['cashier-orders'],
     queryFn: async () => {
@@ -57,13 +57,32 @@ const CashierBoard = () => {
       const { data } = await supabase
         .from('orders')
         .select('*')
-        .in('status', ['New', 'Preparing', 'Ready', 'Served', 'Paid'])
+        .in('status', ['New', 'Preparing', 'Ready', 'Served'])
         .gte('created_at', start.toISOString())
         .order('created_at', { ascending: true })
         .limit(300);
       return data || [];
     },
     refetchInterval: 5000,
+  });
+
+  // Fetch completed orders for selected date
+  const { data: completedOrders = [] } = useQuery({
+    queryKey: ['cashier-completed', completedDate],
+    queryFn: async () => {
+      const dayStart = `${completedDate}T00:00:00`;
+      const dayEnd = `${completedDate}T23:59:59`;
+      const { data } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('status', 'Paid')
+        .gte('created_at', dayStart)
+        .lte('created_at', dayEnd)
+        .order('created_at', { ascending: false })
+        .limit(300);
+      return data || [];
+    },
+    refetchInterval: 10000,
   });
 
   // Active bookings for charge-to-room
