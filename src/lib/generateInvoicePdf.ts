@@ -17,6 +17,22 @@ function formatCurrency(amount: number): string {
   return `P${amount.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+function loadImageAsBase64(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext('2d')!.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 export async function generateInvoicePdf(
   order: InvoiceOrder,
   profile: ResortProfile | null,
@@ -32,7 +48,17 @@ export async function generateInvoicePdf(
   const showSc = invoiceSettings?.show_service_charge ?? true;
   const showPay = invoiceSettings?.show_payment_method ?? true;
 
-  // ── Header: Resort name (sleek, normal weight) ──
+  // ── Header: Logo + Resort name ──
+  if (profile?.logo_url) {
+    try {
+      const img = await loadImageAsBase64(profile.logo_url);
+      const logoH = Math.min((profile.logo_size || 64) * 0.26, 18); // ~px to mm
+      const logoW = logoH; // square bounding box
+      doc.addImage(img, 'PNG', ml, y - 4, logoW, logoH);
+      y += logoH + 2;
+    } catch { /* skip logo if load fails */ }
+  }
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(16);
   doc.setTextColor(50, 50, 50);
