@@ -268,29 +268,39 @@ const CashierBoard = () => {
             <p className="font-body text-sm text-muted-foreground text-center py-12">No active orders</p>
           )}
 
-          {/* Completed */}
-          {buckets.completed.length > 0 && (
-            <div className="px-3 pb-4">
-              <Collapsible open={completedOpen} onOpenChange={setCompletedOpen}>
-                <CollapsibleTrigger className="w-full flex items-center justify-between bg-secondary/50 border border-border rounded-lg px-4 py-3 hover:bg-secondary transition-colors">
-                  <span className="font-display text-xs tracking-wider text-muted-foreground">
-                    ✓ Completed ({buckets.completed.length})
-                  </span>
-                  {completedOpen ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronUp className="w-4 h-4 text-muted-foreground" />}
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-3 space-y-2 max-h-[30vh] overflow-y-auto">
-                  {buckets.completed.map(order => (
-                    <OrderRow
-                      key={order.id}
-                      order={order}
-                      selected={false}
-                      onSelect={() => handleOrderSelect(order)}
-                    />
-                  ))}
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
-          )}
+          {/* Completed — date picker + stacked cards */}
+          <div className="px-3 pb-4">
+            <Collapsible open={completedOpen} onOpenChange={setCompletedOpen}>
+              <CollapsibleTrigger className="w-full flex items-center justify-between bg-secondary/50 border border-border rounded-lg px-4 py-3 hover:bg-secondary transition-colors">
+                <span className="font-display text-xs tracking-wider text-muted-foreground">
+                  ✓ Completed ({completedOrders.length})
+                </span>
+                {completedOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-3 space-y-2">
+                <div className="flex items-center gap-2 px-1">
+                  <CalendarIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <Input
+                    type="date"
+                    value={completedDate}
+                    onChange={e => setCompletedDate(e.target.value || format(new Date(), 'yyyy-MM-dd'))}
+                    className="bg-secondary border-border text-foreground font-body text-sm h-9 w-auto"
+                  />
+                </div>
+                {completedOrders.length === 0 && (
+                  <p className="font-body text-xs text-muted-foreground text-center py-4">No completed orders for this date</p>
+                )}
+                {completedOrders.map(order => (
+                  <OrderRow
+                    key={order.id}
+                    order={order}
+                    selected={false}
+                    onSelect={() => handleOrderSelect(order)}
+                  />
+                ))}
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
         </div>
       </div>
 
