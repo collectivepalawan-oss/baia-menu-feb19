@@ -213,9 +213,9 @@ const CashierBoard = () => {
   };
 
   return (
-    <div className="h-full flex flex-col md:flex-row overflow-hidden max-w-full">
+    <div className="min-h-0 flex flex-col md:flex-row md:h-full md:overflow-hidden max-w-full">
       {/* Left: Order list */}
-      <div className="flex-1 flex flex-col overflow-hidden border-r border-border/50 min-w-0">
+      <div className="flex-1 flex flex-col md:overflow-hidden border-r border-border/50 min-w-0">
         {/* Summary */}
         <div className="flex items-center gap-4 px-4 py-2 border-b border-border bg-card/50 flex-shrink-0">
           <span className="font-display text-sm text-foreground tracking-wider">
@@ -228,7 +228,7 @@ const CashierBoard = () => {
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 md:overflow-y-auto">
           {/* Bill Out section — priority */}
           {buckets.billOut.length > 0 && (
             <div className="p-3">
@@ -305,7 +305,7 @@ const CashierBoard = () => {
       </div>
 
       {/* Right: Bill Out / Payment Panel */}
-      <div className="w-full md:w-[400px] lg:w-[440px] flex-shrink-0 bg-card/50 flex flex-col overflow-y-auto">
+      <div className="w-full md:w-[400px] lg:w-[440px] flex-shrink-0 bg-card/50 flex flex-col md:overflow-y-auto">
         {selectedOrder ? (
           <BillOutPanel
             order={selectedOrder}
@@ -459,7 +459,7 @@ const BillOutPanel = ({
       </div>
 
       {/* Itemized bill */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+      <div className="flex-1 md:overflow-y-auto px-4 py-3 space-y-4">
         <div className="space-y-1">
           {items.map((item: any, idx: number) => (
             <div key={idx} className="flex justify-between font-body text-sm">
@@ -607,7 +607,7 @@ const DailySummary = ({ completed }: { completed: any[] }) => {
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+      <div className="flex-1 px-4 py-4 space-y-5">
         {/* Register revenue (excluding room charges) */}
         <div className="text-center space-y-1">
           <p className="font-body text-xs text-muted-foreground uppercase tracking-wider">Register Revenue Today</p>
@@ -670,7 +670,7 @@ const DailySummary = ({ completed }: { completed: any[] }) => {
               <span className="font-display text-xs tracking-wider text-muted-foreground">CASH TRANSACTIONS ({cashEntry.count})</span>
               <ChevronDown className="w-4 h-4 text-muted-foreground" />
             </CollapsibleTrigger>
-            <CollapsibleContent className="pt-2 space-y-1 max-h-[30vh] overflow-y-auto">
+            <CollapsibleContent className="pt-2 space-y-1">
               {completed.filter(o => o.payment_type === 'Cash').map(o => (
                 <div key={o.id} className="flex items-center justify-between rounded-lg bg-card/80 border border-border/50 px-3 py-2">
                   <div className="min-w-0">
