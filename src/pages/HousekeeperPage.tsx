@@ -189,7 +189,7 @@ const HousekeeperPage = ({ embedded = false }: { embedded?: boolean }) => {
       {/* New Assignments */}
       <section className="mb-6">
         <h2 className="font-display text-sm tracking-wider text-muted-foreground uppercase mb-3 flex items-center gap-2">
-          <ClipboardCheck className="w-4 h-4" /> New Assignments ({pendingOrders.length})
+          <ClipboardCheck className="w-4 h-4" /> Assignments ({pendingOrders.length})
         </h2>
         {pendingOrders.length === 0 ? (
           <p className="font-body text-xs text-muted-foreground">No pending assignments</p>
