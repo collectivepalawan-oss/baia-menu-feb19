@@ -100,19 +100,17 @@ const CashierBoard = () => {
     },
   });
 
-  // Bucket orders — ALL Served orders go to billOut, never auto-complete
+  // Bucket orders — active only (completed fetched separately)
   const buckets = useMemo(() => {
     const active: any[] = [];
     const billOut: any[] = [];
-    const completed: any[] = [];
 
     orders.forEach(o => {
-      if (o.status === 'Paid') completed.push(o);
-      else if (o.status === 'Served') billOut.push(o);
+      if (o.status === 'Served') billOut.push(o);
       else active.push(o);
     });
 
-    return { active, billOut, completed };
+    return { active, billOut };
   }, [orders]);
 
   // Handle payment confirmation
