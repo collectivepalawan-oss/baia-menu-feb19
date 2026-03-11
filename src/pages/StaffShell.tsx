@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { hasAccess } from '@/lib/permissions';
+import { hasAccess, canEdit } from '@/lib/permissions';
 import { getStaffSession } from '@/lib/session';
 import ReceptionHome from '@/components/staff/ReceptionHome';
 import HousekeepingHome from '@/components/staff/HousekeepingHome';
