@@ -92,19 +92,32 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
     },
   });
 
-  // Check housekeeping clearance
-  const { data: hkOrder } = useQuery({
+  // Check housekeeping clearance — also create pre_inspection order if none exists
+  const { data: hkOrder, refetch: refetchHk } = useQuery({
     queryKey: ['checkout-hk-clearance', unitName],
     enabled: open && !!unitName,
     queryFn: async () => {
-      const { data } = await (supabase.from('housekeeping_orders') as any)
-        .select('id, status, damage_notes')
+      // Check for existing active HK order
+      const { data: existing } = await (supabase.from('housekeeping_orders') as any)
+        .select('id, status, damage_notes, inspection_by_name')
         .eq('unit_name', unitName)
         .neq('status', 'completed')
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      return data as any;
+
+      if (existing) return existing as any;
+
+      // Auto-create a pre_inspection order when checkout modal opens
+      const { data: newOrder } = await (supabase.from('housekeeping_orders') as any)
+        .insert({
+          unit_name: unitName,
+          room_type_id: roomTypeId || null,
+          status: 'pre_inspection',
+        })
+        .select('id, status, damage_notes, inspection_by_name')
+        .single();
+      return newOrder as any;
     },
   });
 
@@ -191,31 +204,28 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
 
       await supabase.from('units').update({ status: 'to_clean' } as any).eq('id', unitId);
 
-      // Create housekeeping order with assignment
-      const { data: existingOrders } = await (supabase.from('housekeeping_orders' as any) as any)
-        .select('id')
-        .eq('unit_name', unitName)
-        .neq('status', 'completed');
-
+      // Transition existing HK order to 'cleaning' (post-checkout phase)
       const hkEmployee = hkEmployees.find((e: any) => e.id === selectedHousekeeper);
 
-      if (!existingOrders || existingOrders.length === 0) {
+      if (hkOrder?.id) {
+        await (supabase.from('housekeeping_orders' as any) as any).update({
+          status: 'cleaning',
+          assigned_to: selectedHousekeeper || hkOrder.assigned_to || null,
+          accepted_by: selectedHousekeeper || hkOrder.accepted_by || null,
+          accepted_by_name: hkEmployee ? (hkEmployee.display_name || hkEmployee.name) : (hkOrder.accepted_by_name || ''),
+          accepted_at: selectedHousekeeper ? new Date().toISOString() : (hkOrder.accepted_at || null),
+        }).eq('id', hkOrder.id);
+      } else {
+        // Fallback: create new cleaning order
         await (supabase.from('housekeeping_orders' as any) as any).insert({
           unit_name: unitName,
           room_type_id: roomTypeId || null,
-          status: 'pending_inspection',
+          status: 'cleaning',
           assigned_to: selectedHousekeeper || null,
           accepted_by: selectedHousekeeper || null,
           accepted_by_name: hkEmployee ? (hkEmployee.display_name || hkEmployee.name) : '',
           accepted_at: selectedHousekeeper ? new Date().toISOString() : null,
         });
-      } else if (selectedHousekeeper) {
-        await (supabase.from('housekeeping_orders' as any) as any).update({
-          assigned_to: selectedHousekeeper,
-          accepted_by: selectedHousekeeper,
-          accepted_by_name: hkEmployee ? (hkEmployee.display_name || hkEmployee.name) : '',
-          accepted_at: new Date().toISOString(),
-        }).eq('id', existingOrders[0].id);
       }
 
       // Send WhatsApp notification to assigned housekeeper
@@ -276,6 +286,18 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
             <ChecklistItem ok={allToursCompleted} label="Tours & experiences completed" detail={!allToursCompleted ? `${incompleteTours.length} tour(s) still active` : undefined} />
             <ChecklistItem ok={allRequestsCompleted} label="Guest requests completed" detail={!allRequestsCompleted ? `${incompleteRequests.length} request(s) still active` : undefined} />
             <ChecklistItem ok={guestAgreed} label="Guest reviewed & agreed to bill" detail={guestAgreed ? `Agreed ${new Date(billAgreement.bill_agreed_at).toLocaleString()}` : 'Not yet agreed on portal'} isWarning />
+            <ChecklistItem
+              ok={hkOrder?.status === 'inspection_cleared'}
+              label="Housekeeping pre-checkout inspection"
+              detail={
+                hkOrder?.status === 'inspection_cleared'
+                  ? `✅ Cleared by ${hkOrder.inspection_by_name || 'staff'}${hkOrder.damage_notes ? ` — Notes: ${hkOrder.damage_notes}` : ''}`
+                  : hkOrder?.status === 'pre_inspection'
+                  ? '⏳ Waiting for housekeeper to inspect'
+                  : 'Pending'
+              }
+              isWarning={hkOrder?.status === 'pre_inspection'}
+            />
 
             {!checklistPassed && !overrideChecklist && (
               <Button size="sm" variant="outline" onClick={() => setOverrideChecklist(true)}

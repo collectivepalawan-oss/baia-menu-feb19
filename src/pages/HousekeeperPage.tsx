@@ -81,15 +81,14 @@ const HousekeeperPage = ({ embedded = false }: { embedded?: boolean }) => {
 
   // Derive latest order per unit
   const latestByUnit = new Map<string, any>();
-  allOrders.filter((o: any) => o.status !== 'completed').forEach((o: any) => {
+  allOrders.filter((o: any) => o.status !== 'completed' && o.status !== 'inspection_cleared').forEach((o: any) => {
     if (!latestByUnit.has(o.unit_name)) latestByUnit.set(o.unit_name, o);
   });
 
   // Separate: assigned to me vs unassigned pending
   const allActive = Array.from(latestByUnit.values());
-  const myAssigned = allActive.filter((o: any) => (o.assigned_to === empId || o.accepted_by === empId) && !o.accepted_by);
-  const pendingOrders = allActive.filter((o: any) => !o.accepted_by);
-  const myInProgress = allActive.filter((o: any) => o.accepted_by === empId);
+  const pendingOrders = allActive.filter((o: any) => !o.accepted_by && (o.status === 'pre_inspection' || o.status === 'pending_inspection'));
+  const myInProgress = allActive.filter((o: any) => o.accepted_by === empId && (o.status === 'cleaning' || o.status === 'pending_inspection'));
 
   // Sort: urgent first, then assigned-to-me first
   const sortOrders = (orders: any[]) => orders.sort((a, b) => {
@@ -162,9 +161,11 @@ const HousekeeperPage = ({ embedded = false }: { embedded?: boolean }) => {
   };
 
   if (activeOrder) {
+    const hkMode = activeOrder.status === 'pre_inspection' ? 'pre_inspection' : 'cleaning';
     return (
       <HousekeepingInspection
         order={activeOrder}
+        mode={hkMode}
         onClose={() => {
           setActiveOrder(null);
           qc.invalidateQueries({ queryKey: ['housekeeping-orders-all'] });
@@ -190,7 +191,7 @@ const HousekeeperPage = ({ embedded = false }: { embedded?: boolean }) => {
       {/* New Assignments */}
       <section className="mb-6">
         <h2 className="font-display text-sm tracking-wider text-muted-foreground uppercase mb-3 flex items-center gap-2">
-          <ClipboardCheck className="w-4 h-4" /> New Assignments ({pendingOrders.length})
+          <ClipboardCheck className="w-4 h-4" /> Assignments ({pendingOrders.length})
         </h2>
         {pendingOrders.length === 0 ? (
           <p className="font-body text-xs text-muted-foreground">No pending assignments</p>
@@ -212,9 +213,14 @@ const HousekeeperPage = ({ embedded = false }: { embedded?: boolean }) => {
                         </Badge>
                       )}
                     </div>
-                    <Badge className={priorityColor(order.priority || 'normal')} variant="secondary">
-                      {order.priority || 'normal'}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      {order.status === 'pre_inspection' && (
+                        <Badge className="bg-blue-600 text-white font-body text-[10px]">🔍 Pre-Checkout</Badge>
+                      )}
+                      <Badge className={priorityColor(order.priority || 'normal')} variant="secondary">
+                        {order.priority || 'normal'}
+                      </Badge>
+                    </div>
                   </div>
                   <p className="font-body text-xs text-muted-foreground mb-3">
                     Created: {format(new Date(order.created_at), 'h:mm a')}
@@ -249,7 +255,7 @@ const HousekeeperPage = ({ embedded = false }: { embedded?: boolean }) => {
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-display text-base tracking-wider text-foreground">{order.unit_name}</span>
                   <Badge variant="outline" className="font-body text-xs">
-                    {order.status === 'cleaning' ? '🧹 Cleaning' : '🔍 Inspection'}
+                    {order.status === 'cleaning' ? '🧹 Cleaning' : order.status === 'pre_inspection' ? '🔍 Pre-Checkout' : '🔍 Inspection'}
                   </Badge>
                 </div>
                 {order.accepted_at && (
