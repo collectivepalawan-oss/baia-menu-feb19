@@ -672,29 +672,55 @@ const RoomsDashboard = ({ readOnly = false, canViewDocuments = true, initialUnit
         )}
 
         {/* Housekeeping banner */}
-        {unitHkOrder && !readOnly && (
-          <button
-            onClick={() => setViewingHousekeepingOrder(unitHkOrder)}
-            className="w-full border-2 border-amber-500/50 bg-amber-500/10 rounded-lg p-3 text-left"
-          >
-            <div className="flex items-center gap-2">
-              <ClipboardCheck className="w-4 h-4 text-amber-400" />
-              <span className="font-display text-sm text-amber-400 tracking-wider">
-                Housekeeping: {unitHkOrder.status === 'pending_inspection' ? 'Pending Inspection' : unitHkOrder.status === 'inspecting' ? 'Inspecting' : 'Cleaning'}
-              </span>
+        {unitHkOrder && !readOnly && (() => {
+          const s = unitHkOrder.status;
+          const isCleared = s === 'inspection_cleared';
+          const isPreInspect = s === 'pre_inspection';
+          const isCleaning = s === 'cleaning';
+          const borderColor = isCleared ? 'border-emerald-500/50' : 'border-amber-500/50';
+          const bgColor = isCleared ? 'bg-emerald-500/10' : 'bg-amber-500/10';
+          const textColor = isCleared ? 'text-emerald-400' : 'text-amber-400';
+          const icon = isCleared ? '✅' : isPreInspect ? '🔍' : isCleaning ? '🧹' : '📋';
+          const label = isCleared ? 'Cleared for Checkout' : isPreInspect ? 'Pre-Checkout Inspection Needed' : isCleaning ? 'Cleaning in Progress' : s === 'pending_inspection' ? 'Pending Inspection' : s;
+          const clickable = !isCleared;
+
+          const content = (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="text-base">{icon}</span>
+                <span className={`font-display text-sm ${textColor} tracking-wider`}>
+                  {label}
+                </span>
+              </div>
+              {unitHkOrder.assigned_to && (
+                <p className="font-body text-xs text-muted-foreground mt-1">Assigned to: {getEmployeeName(unitHkOrder.assigned_to)}</p>
+              )}
+              {isCleared && unitHkOrder.damage_notes && (
+                <p className="font-body text-xs text-muted-foreground mt-1">Notes: {unitHkOrder.damage_notes}</p>
+              )}
+              {clickable && <p className={`font-body text-xs ${textColor} opacity-70 mt-1`}>Tap to open →</p>}
+            </>
+          );
+
+          return clickable ? (
+            <button
+              onClick={() => setViewingHousekeepingOrder(unitHkOrder)}
+              className={`w-full border-2 ${borderColor} ${bgColor} rounded-lg p-3 text-left`}
+            >
+              {content}
+            </button>
+          ) : (
+            <div className={`w-full border-2 ${borderColor} ${bgColor} rounded-lg p-3`}>
+              {content}
             </div>
-            {unitHkOrder.assigned_to && (
-              <p className="font-body text-xs text-muted-foreground mt-1">Assigned to: {getEmployeeName(unitHkOrder.assigned_to)}</p>
-            )}
-            <p className="font-body text-xs text-amber-400/70 mt-1">Tap to open →</p>
-          </button>
-        )}
+          );
+        })()}
         {unitHkOrder && readOnly && (
           <div className="w-full border-2 border-amber-500/50 bg-amber-500/10 rounded-lg p-3">
             <div className="flex items-center gap-2">
               <ClipboardCheck className="w-4 h-4 text-amber-400" />
               <span className="font-display text-sm text-amber-400 tracking-wider">
-                Housekeeping: {unitHkOrder.status === 'pending_inspection' ? 'Pending Inspection' : unitHkOrder.status === 'inspecting' ? 'Inspecting' : 'Cleaning'}
+                Housekeeping: {unitHkOrder.status === 'inspection_cleared' ? '✅ Cleared' : unitHkOrder.status === 'pre_inspection' ? '🔍 Pre-Inspection' : unitHkOrder.status === 'cleaning' ? '🧹 Cleaning' : unitHkOrder.status}
               </span>
             </div>
             {unitHkOrder.assigned_to && (
