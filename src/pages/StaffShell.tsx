@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { hasAccess } from '@/lib/permissions';
+import { hasAccess, canEdit } from '@/lib/permissions';
 import { getStaffSession } from '@/lib/session';
 import ReceptionHome from '@/components/staff/ReceptionHome';
 import HousekeepingHome from '@/components/staff/HousekeepingHome';
@@ -35,7 +35,11 @@ const StaffShell = () => {
 
   const availableRoles = useMemo(() => {
     if (isAdmin) return ROLES;
-    return ROLES.filter(r => hasAccess(perms, r.perm));
+    return ROLES.filter(r => {
+      // Orders tab requires edit (placing orders), not just view
+      if (r.key === 'orders') return canEdit(perms, r.perm);
+      return hasAccess(perms, r.perm);
+    });
   }, [perms, isAdmin]);
 
   const [activeRole, setActiveRole] = useState(() => availableRoles[0]?.key || 'reception');
