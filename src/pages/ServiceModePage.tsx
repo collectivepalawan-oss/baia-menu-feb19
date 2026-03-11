@@ -18,6 +18,7 @@ const departments = [
     glow: 'shadow-[0_0_30px_-5px_hsl(25,85%,55%,0.3)]',
     route: '/service/kitchen',
     statusField: 'kitchen_status',
+    permKeys: ['kitchen'],
   },
   {
     key: 'bar',
@@ -28,6 +29,7 @@ const departments = [
     glow: 'shadow-[0_0_30px_-5px_hsl(270,60%,55%,0.3)]',
     route: '/service/bar',
     statusField: 'bar_status',
+    permKeys: ['bar'],
   },
   {
     key: 'reception',
@@ -38,6 +40,7 @@ const departments = [
     glow: 'shadow-[0_0_30px_-5px_hsl(210,70%,50%,0.3)]',
     route: '/service/reception',
     statusField: null,
+    permKeys: ['reception_display', 'reception'],
   },
   {
     key: 'cashier',
@@ -48,6 +51,7 @@ const departments = [
     glow: 'shadow-[0_0_30px_-5px_hsl(45,90%,50%,0.3)]',
     route: '/service/cashier',
     statusField: null,
+    permKeys: ['cashier'],
   },
 ];
 
