@@ -81,15 +81,14 @@ const HousekeeperPage = ({ embedded = false }: { embedded?: boolean }) => {
 
   // Derive latest order per unit
   const latestByUnit = new Map<string, any>();
-  allOrders.filter((o: any) => o.status !== 'completed').forEach((o: any) => {
+  allOrders.filter((o: any) => o.status !== 'completed' && o.status !== 'inspection_cleared').forEach((o: any) => {
     if (!latestByUnit.has(o.unit_name)) latestByUnit.set(o.unit_name, o);
   });
 
   // Separate: assigned to me vs unassigned pending
   const allActive = Array.from(latestByUnit.values());
-  const myAssigned = allActive.filter((o: any) => (o.assigned_to === empId || o.accepted_by === empId) && !o.accepted_by);
-  const pendingOrders = allActive.filter((o: any) => !o.accepted_by);
-  const myInProgress = allActive.filter((o: any) => o.accepted_by === empId);
+  const pendingOrders = allActive.filter((o: any) => !o.accepted_by && (o.status === 'pre_inspection' || o.status === 'pending_inspection'));
+  const myInProgress = allActive.filter((o: any) => o.accepted_by === empId && (o.status === 'cleaning' || o.status === 'pending_inspection'));
 
   // Sort: urgent first, then assigned-to-me first
   const sortOrders = (orders: any[]) => orders.sort((a, b) => {
