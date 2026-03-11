@@ -42,6 +42,7 @@ const App = () => (
           <Route path="/service/kitchen" element={<RequireAuth requiredPermission={['kitchen', 'orders']}><ServiceKitchenPage /></RequireAuth>} />
           <Route path="/service/bar" element={<RequireAuth requiredPermission={['bar', 'orders']}><ServiceBarPage /></RequireAuth>} />
           <Route path="/service/reception" element={<RequireAuth requiredPermission={['reception', 'orders']}><ServiceReceptionPage /></RequireAuth>} />
+          <Route path="/service/cashier" element={<RequireAuth requiredPermission={['reception', 'orders']}><ServiceCashierPage /></RequireAuth>} />
 
           {/* Staff Shell — role-aware action console */}
           <Route path="/staff" element={<RequireAuth><StaffShell /></RequireAuth>} />

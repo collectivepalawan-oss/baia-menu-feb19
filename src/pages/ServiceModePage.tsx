@@ -77,7 +77,8 @@ const ServiceModePage = () => {
   });
 
   const counts = useMemo(() => {
-    let kitchen = 0, bar = 0, reception = 0;
+    let kitchen = 0, bar = 0, reception = 0, cashier = 0;
+    const isAutoPayable = (o: any) => o.payment_type === 'Charge to Room' || !!o.tab_id;
     orders.forEach((o: any) => {
       const items = (o.items as any[]) || [];
       const hasFood = items.some((i: any) => { const d = i.department || 'kitchen'; return d === 'kitchen' || d === 'both'; });
@@ -85,8 +86,10 @@ const ServiceModePage = () => {
       if (hasFood && o.kitchen_status !== 'ready') kitchen++;
       if (hasDrinks && o.bar_status !== 'ready') bar++;
       reception++;
+      // Cashier count = served non-auto-payable (awaiting payment)
+      if (o.status === 'Served' && !isAutoPayable(o)) cashier++;
     });
-    return { kitchen, bar, reception };
+    return { kitchen, bar, reception, cashier };
   }, [orders]);
 
   return (
