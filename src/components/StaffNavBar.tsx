@@ -7,6 +7,7 @@ import { hasAccess } from '@/lib/permissions';
 import { getHomeRoute } from '@/lib/getHomeRoute';
 import { Badge } from '@/components/ui/badge';
 import { getStaffSession, clearStaffSession } from '@/lib/session';
+import ThemeToggle from '@/components/ThemeToggle';
 
 /** Color map for department badges — HSL values from design tokens where possible */
 const DEPT_COLORS: Record<string, string> = {
@@ -157,9 +158,10 @@ const StaffNavBar = ({ activeDepartment }: StaffNavBarProps) => {
           <DeptBadge />
         </div>
 
-        {/* Right side - staff name + logout (desktop) */}
-        <div className="hidden sm:flex items-center gap-3">
+        {/* Right side - staff name + toggle + logout (desktop) */}
+        <div className="hidden sm:flex items-center gap-2">
           <span className="font-body text-xs text-muted-foreground">{displayName}</span>
+          <ThemeToggle />
           <Button
             variant="ghost"
             size="sm"
@@ -186,7 +188,11 @@ const StaffNavBar = ({ activeDepartment }: StaffNavBarProps) => {
               {deptLabel && <div className="mb-3"><DeptBadge /></div>}
               <div className="flex flex-col gap-2">
                 <NavItems mobile />
-                <div className="border-t border-border my-2" />
+              <div className="flex items-center gap-2 py-1">
+                <ThemeToggle />
+                <span className="font-body text-xs text-muted-foreground">Theme</span>
+              </div>
+              <div className="border-t border-border my-2" />
                 <Button
                   variant="ghost"
                   size="sm"

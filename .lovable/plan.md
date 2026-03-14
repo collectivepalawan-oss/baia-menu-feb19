@@ -1,80 +1,37 @@
 
 
-## Plan: Add Light/Dark Mode Toggle (System-Preference Default)
+## Plan: Fix Schedule Delete & Enhance Task/Assignment Scheduling
 
-### How It Works
+### Issues Found
 
-Your app already has the perfect architecture for this — all colors use CSS custom properties, and `darkMode: ["class"]` is already set in Tailwind config. Adding a light mode means:
+1. **Delete button bug**: The trash icon on shift blocks triggers `setDeleteId(s.id)`, but the parent div's `onClick={() => openEdit(s)}` fires simultaneously despite `stopPropagation`. On mobile, the tiny button (3x3 icon) is nearly impossible to tap. The AlertDialog `onOpenChange={() => setDeleteId(null)}` also races with the confirm action.
 
-1. Define a second set of CSS variable values for light mode
-2. Add a small theme provider that reads OS preference and allows manual override
-3. Place a toggle icon (sun/moon) in every header
+2. **Missing scheduling features**: The schedule only manages time shifts. There's no way to assign tasks like housecleaning, reception duty, or track completion from within the schedule view.
 
 ### Changes
 
-**1. `src/index.css`** — Restructure CSS variables
+**1. Fix Delete Button** (`WeeklyScheduleManager.tsx`)
+- Make `confirmDelete` capture `deleteId` before the dialog closes by saving it in a ref or local variable
+- Increase touch target size for edit/delete buttons on shift blocks
+- Prevent edit modal from opening when clicking edit/delete icons (the `stopPropagation` exists but the parent click handler on the entire timeline area also fires)
 
-Move current dark values under `.dark` class, add new light-mode values as the `:root` default:
+**2. Add Task/Assignment Creation from Schedule** (`WeeklyScheduleManager.tsx`)
+- Add an "Assign Task" button alongside "Add Shift" 
+- New modal to create a task assignment: select employee, pick type (Housecleaning, Reception, Custom), set date/time, add notes
+- For housecleaning: select a room/unit to clean, auto-creates a `housekeeping_orders` entry assigned to the selected employee
+- For other tasks: creates an `employee_tasks` entry with due date and description
+- Tasks appear as colored pills on the timeline (already partially implemented)
 
-- **Light mode** (`:root`): White/light gray backgrounds, dark text, muted borders — professional daytime palette
-- **Dark mode** (`.dark`): Current navy/cream palette preserved exactly as-is
-- Update `.bg-navy-texture` to be conditional (light: subtle warm gray texture, dark: current navy texture)
-- Update glow animations to use softer shadows in light mode
+**3. Show Completion Info on Task Detail** (`WeeklyScheduleManager.tsx`)
+- In the task detail dialog, show who completed the task and when (`completed_at`)
+- For housekeeping pills, show completion status (`cleaning_completed_at`, `completed_by_name`)
+- Make housekeeping pills clickable to show full details (room, status, who inspected/cleaned)
 
-**2. New file: `src/hooks/useTheme.tsx`** — Theme context + hook
+**4. Enhance Task Detail Dialog** (`WeeklyScheduleManager.tsx`)
+- Add edit capability: change title, description, due date, reassign to different employee
+- Add delete capability for tasks
+- Show completion audit trail
 
-- Reads `prefers-color-scheme` media query on mount
-- Checks `localStorage` for manual override
-- Applies `.dark` class to `<html>` element
-- Exposes `{ theme, setTheme, toggleTheme }` via React context
-- Three states: `system`, `light`, `dark`
-
-**3. New file: `src/components/ThemeToggle.tsx`** — Small sun/moon icon button
-
-- Uses `useTheme` hook
-- Renders a `Button variant="ghost" size="icon"` with Sun or Moon icon
-- Clicking cycles: system → light → dark → system
-
-**4. Update headers to include the toggle:**
-
-- `src/components/service/ServiceHeader.tsx` — Add `<ThemeToggle />` next to the staff name/logout area
-- `src/components/StaffNavBar.tsx` — Add `<ThemeToggle />` in the nav bar
-- `src/pages/Index.tsx` — Add `<ThemeToggle />` in the top corner of the login page
-- `src/components/admin/AdminLoginGate.tsx` or `src/pages/AdminPage.tsx` — Add toggle in admin header
-
-**5. `src/App.tsx`** — Wrap app with `ThemeProvider`
-
-### Light Mode Color Palette
-
-| Variable | Light Value | Purpose |
-|----------|------------|---------|
-| `--background` | `0 0% 100%` | White |
-| `--foreground` | `220 20% 15%` | Near-black text |
-| `--card` | `220 15% 97%` | Very light gray cards |
-| `--card-foreground` | `220 20% 15%` | Dark text on cards |
-| `--primary` | `220 30% 25%` | Dark navy buttons |
-| `--primary-foreground` | `0 0% 100%` | White text on buttons |
-| `--muted` | `220 10% 93%` | Light gray muted areas |
-| `--border` | `220 10% 85%` | Subtle borders |
-| `--gold` | `38 60% 50%` | Slightly deeper gold for contrast on white |
-
-### What Won't Break
-
-- All shadcn/ui components use the CSS variables — they adapt automatically
-- Fonts (Playfair Display, Lato) are color-independent
-- Department gradient badges (kitchen orange, bar purple, etc.) use self-contained colors with white text — they work on any background
-- The `hsl(var(...))` pattern means zero component-level color changes needed
-
-### What Needs Care
-
-- ~6 places with hardcoded `bg-[hsl(...)]` inline colors (department badges in `StaffNavBar`, status badges in `ServiceOrderDetail`) — these are decorative and self-contained, so they'll work fine on light backgrounds
-- `.bg-navy-texture` utility — will get a light-mode variant
-- Glow/pulse animations — will use CSS variables or `@media (prefers-color-scheme)` to soften on light backgrounds
-
-### Estimated Scope
-
-- 2 new files (hook + toggle component)
-- 1 major edit (`index.css` — add light palette)
-- 4-5 minor edits (adding toggle to headers + wrapping App with provider)
-- No database changes needed
+### Files to Edit
+- `src/components/admin/WeeklyScheduleManager.tsx` — all changes in this single file
 

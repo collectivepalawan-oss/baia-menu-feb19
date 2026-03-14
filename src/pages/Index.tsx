@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DoorOpen, Users, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { getStaffSession, setStaffSession, isRemembered } from '@/lib/session';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -77,7 +78,10 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-navy-texture flex flex-col items-center justify-center px-6">
+    <div className="min-h-screen bg-navy-texture flex flex-col items-center justify-center px-6 relative">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       {profile?.logo_url && (
         <div className="mb-6" style={{ width: logoSize, height: logoSize }}>
           <img
