@@ -65,8 +65,11 @@ const inferShiftType = (time_in: string, time_out: string): string => {
   const tout = time_out.slice(0, 5);
   if (tin === '07:00' && tout === '16:00') return 'Morning';
   if (tin === '12:00' && tout === '21:00') return 'Evening';
+  if (tin === '21:00' && tout === '09:00') return 'Night';
   if (tin === '08:00' && tout === '17:00') return 'Maintenance';
   if ((tin === '07:00' && tout === '11:00') || (tin === '17:00' && tout === '21:00')) return 'Broken';
+  // Detect generic overnight shifts
+  if (tout < tin) return 'Night';
   return 'Custom';
 };
 
