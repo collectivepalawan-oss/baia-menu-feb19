@@ -5,10 +5,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { ArrowLeft, MapPin, CheckCircle, Palmtree, Car, Bike, ChevronDown, History, MessageCircle, Droplets, ConciergeBell } from 'lucide-react';
+import { ArrowLeft, MapPin, CheckCircle, Palmtree, Car, Bike, ChevronDown, History, MessageCircle, Droplets, ConciergeBell, Pencil, CalendarDays, StickyNote } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import { toast } from 'sonner';
 import { canEdit } from '@/lib/permissions';
+import EditTourModal from '@/components/rooms/EditTourModal';
 
 const from = (table: string) => supabase.from(table as any);
 
