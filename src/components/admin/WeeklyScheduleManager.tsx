@@ -523,7 +523,6 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
     const left = timeToPercent(renderTimeIn);
     const right = timeToPercent(renderTimeOut);
     const width = Math.max(right - left, 2);
-    const isOvernight = s.time_out.slice(0, 5) <= s.time_in.slice(0, 5);
     const isContinuation = !!(s.continues_from_previous || s.continues_to_next);
     const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const actionClickedRef = useRef(false);
