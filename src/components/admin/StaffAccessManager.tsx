@@ -6,34 +6,69 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { type PermissionLevel, getPermissionLevel } from '@/lib/permissions';
-import { Plus, Pencil, Copy, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Copy, Trash2, X } from 'lucide-react';
 
 const from = (table: string) => supabase.from(table as any);
 
+/* ── Built-in role templates ── */
 const BUILTIN_ROLE_TEMPLATES: Record<string, string[]> = {
   admin: ['admin'],
-  gm: ['admin'],
-  receptionist: ['reception:edit', 'reception_display:edit', 'cashier:edit', 'experiences:edit', 'rooms:edit', 'housekeeping:view', 'orders:manage', 'documents:view'],
-  cook: ['kitchen:edit', 'orders:view', 'inventory:view'],
-  chef: ['kitchen:edit', 'menu:edit', 'orders:manage', 'inventory:edit'],
-  bartender: ['bar:edit', 'orders:view', 'inventory:view'],
-  cashier: ['cashier:edit', 'orders:manage'],
-  tours: ['experiences:edit', 'orders:view'],
-  transportation: ['experiences:view', 'tasks:edit'],
-  maintenance: ['resort_ops:edit', 'tasks:edit', 'housekeeping:view'],
-  landscaping: ['tasks:edit', 'resort_ops:view'],
+  gm: [
+    'orders:manage', 'kitchen:edit', 'bar:edit', 'housekeeping:edit',
+    'reception:manage', 'experiences:manage', 'reports:view', 'inventory:view',
+    'payroll:view', 'resort_ops:edit', 'rooms:manage', 'schedules:edit',
+    'setup:view', 'tasks:edit', 'timesheet:view', 'documents:view',
+  ],
+  receptionist: [
+    'reception:edit', 'rooms:edit', 'orders:view', 'experiences:view',
+    'schedules:view', 'timesheet:edit',
+  ],
+  chef: [
+    'kitchen:edit', 'orders:edit', 'inventory:view', 'schedules:view', 'timesheet:edit',
+  ],
+  cook: [
+    'kitchen:view', 'orders:view', 'schedules:view', 'timesheet:edit',
+  ],
+  bartender: [
+    'bar:edit', 'orders:edit', 'inventory:view', 'schedules:view', 'timesheet:edit',
+  ],
+  cashier: [
+    'orders:edit', 'reports:view', 'reception:view', 'experiences:view',
+    'rooms:view', 'schedules:view', 'timesheet:edit',
+  ],
+  housekeeping: [
+    'housekeeping:edit', 'tasks:edit', 'rooms:view', 'orders:view',
+    'schedules:view', 'timesheet:edit',
+  ],
+  tours: [
+    'experiences:edit', 'orders:view', 'reception:view', 'rooms:view',
+    'schedules:view', 'timesheet:edit',
+  ],
+  transportation: [
+    'experiences:edit', 'orders:view', 'reception:view', 'rooms:view',
+    'schedules:view', 'timesheet:edit',
+  ],
+  maintenance: [
+    'tasks:edit', 'rooms:view', 'inventory:view', 'reception:view',
+    'schedules:view', 'timesheet:edit',
+  ],
+  landscaping: [
+    'tasks:edit', 'inventory:view', 'schedules:view', 'timesheet:edit',
+  ],
 };
 
 const BUILTIN_ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
-  gm: 'GM',
+  gm: 'General Manager',
   receptionist: 'Receptionist',
-  cook: 'Cook',
   chef: 'Chef',
+  cook: 'Cook',
   bartender: 'Bartender / Barista',
   cashier: 'Cashier',
+  housekeeping: 'Housekeeping',
   tours: 'Tours',
   transportation: 'Transportation',
   maintenance: 'Maintenance',
@@ -72,13 +107,64 @@ const LEVEL_COLORS: Record<PermissionLevel, string> = {
   manage: 'bg-purple-600/20 text-purple-400 border-purple-500/40',
 };
 
+const PERM_LEVELS: Record<string, number> = { off: 0, view: 1, edit: 2, manage: 3 };
+const LEVEL_BY_NUM = ['off', 'view', 'edit', 'manage'] as const;
+
 type CustomRole = { id: string; name: string; permissions: string[]; created_at: string };
+type EmployeeRole = { id: string; employee_id: string; role_key: string };
+
+/* ── Combine permissions from multiple role templates ── */
+function combineRolePermissions(roleKeys: string[], customRoles: CustomRole[]): string[] {
+  const moduleMax: Record<string, number> = {};
+  let hasAdmin = false;
+
+  for (const rk of roleKeys) {
+    let perms: string[] = [];
+    if (rk.startsWith('builtin:')) {
+      const key = rk.replace('builtin:', '');
+      perms = BUILTIN_ROLE_TEMPLATES[key] || [];
+    } else if (rk.startsWith('custom:')) {
+      const id = rk.replace('custom:', '');
+      const cr = customRoles.find(r => r.id === id);
+      perms = cr?.permissions || [];
+    }
+    for (const p of perms) {
+      if (p === 'admin') { hasAdmin = true; continue; }
+      const parts = p.split(':');
+      if (parts.length === 2) {
+        const [mod, lvl] = parts;
+        const num = PERM_LEVELS[lvl] ?? 0;
+        moduleMax[mod] = Math.max(moduleMax[mod] ?? 0, num);
+      }
+    }
+  }
+
+  if (hasAdmin) return ['admin'];
+  const result: string[] = [];
+  for (const [mod, num] of Object.entries(moduleMax)) {
+    if (num > 0) result.push(`${mod}:${LEVEL_BY_NUM[num]}`);
+  }
+  return result;
+}
+
+/* ── Helper to get label for a role_key ── */
+function getRoleLabel(roleKey: string, customRoles: CustomRole[]): string {
+  if (roleKey.startsWith('builtin:')) {
+    return BUILTIN_ROLE_LABELS[roleKey.replace('builtin:', '')] || roleKey;
+  }
+  if (roleKey.startsWith('custom:')) {
+    const cr = customRoles.find(r => r.id === roleKey.replace('custom:', ''));
+    return cr?.name || roleKey;
+  }
+  return roleKey;
+}
 
 const StaffAccessManager = () => {
   const qc = useQueryClient();
   const [roleModal, setRoleModal] = useState<{ mode: 'create' | 'edit'; role?: CustomRole } | null>(null);
   const [roleName, setRoleName] = useState('');
   const [rolePerms, setRolePerms] = useState<string[]>([]);
+  const [addingRoleFor, setAddingRoleFor] = useState<string | null>(null);
 
   const { data: employees = [] } = useQuery({
     queryKey: ['employees-access'],
@@ -104,19 +190,57 @@ const StaffAccessManager = () => {
     },
   });
 
+  const { data: employeeRoles = [] } = useQuery({
+    queryKey: ['employee-roles'],
+    queryFn: async () => {
+      const { data } = await (from('employee_roles') as any).select('*');
+      return (data || []) as EmployeeRole[];
+    },
+  });
+
   const getEmpPermissions = (empId: string) =>
     permissions.filter(p => p.employee_id === empId).map(p => p.permission);
 
-  const applyRole = async (empId: string, permsArray: string[]) => {
+  const getEmpRoles = (empId: string) =>
+    employeeRoles.filter(r => r.employee_id === empId);
+
+  /* ── Write combined permissions from roles to employee_permissions ── */
+  const syncPermissionsFromRoles = async (empId: string, roleKeys: string[]) => {
+    const combined = combineRolePermissions(roleKeys, customRoles);
+    // Delete existing
     const empPerms = permissions.filter(p => p.employee_id === empId);
     for (const p of empPerms) {
       await from('employee_permissions').delete().eq('id', p.id);
     }
-    for (const perm of permsArray) {
+    // Insert combined
+    for (const perm of combined) {
       await from('employee_permissions').insert({ employee_id: empId, permission: perm });
     }
     qc.invalidateQueries({ queryKey: ['employee-permissions'] });
-    toast.success('Role applied');
+  };
+
+  /* ── Add a role to an employee ── */
+  const addRole = async (empId: string, roleKey: string) => {
+    const existing = getEmpRoles(empId);
+    if (existing.some(r => r.role_key === roleKey)) {
+      toast.info('Role already assigned');
+      return;
+    }
+    await from('employee_roles').insert({ employee_id: empId, role_key: roleKey });
+    const newRoleKeys = [...existing.map(r => r.role_key), roleKey];
+    await syncPermissionsFromRoles(empId, newRoleKeys);
+    qc.invalidateQueries({ queryKey: ['employee-roles'] });
+    setAddingRoleFor(null);
+    toast.success('Role added');
+  };
+
+  /* ── Remove a role from an employee ── */
+  const removeRole = async (empId: string, roleId: string, roleKey: string) => {
+    await from('employee_roles').delete().eq('id', roleId);
+    const remaining = getEmpRoles(empId).filter(r => r.id !== roleId).map(r => r.role_key);
+    await syncPermissionsFromRoles(empId, remaining);
+    qc.invalidateQueries({ queryKey: ['employee-roles'] });
+    toast.success('Role removed');
   };
 
   const toggleAdmin = async (empId: string) => {
@@ -187,8 +311,6 @@ const StaffAccessManager = () => {
   const cycleRolePerm = (section: string) => {
     const current = getPermissionLevel(rolePerms, section);
     const isThreeLevel = THREE_LEVEL_SECTIONS.has(section);
-
-    // Remove existing for this section
     const cleaned = rolePerms.filter(p => p !== section && p !== `${section}:view` && p !== `${section}:edit` && p !== `${section}:manage`);
 
     let nextLevel: PermissionLevel;
@@ -201,6 +323,11 @@ const StaffAccessManager = () => {
       cleaned.push(`${section}:${nextLevel}`);
     }
     setRolePerms(cleaned);
+  };
+
+  const prefillFromTemplate = (templateKey: string) => {
+    const perms = BUILTIN_ROLE_TEMPLATES[templateKey];
+    if (perms) setRolePerms([...perms]);
   };
 
   const saveRole = async () => {
@@ -216,13 +343,13 @@ const StaffAccessManager = () => {
     qc.invalidateQueries({ queryKey: ['staff-roles'] });
   };
 
-  // Build combined role options: built-in + custom
+  // All role options for the add-role dropdown
   const allRoleOptions = [
     ...Object.entries(BUILTIN_ROLE_LABELS).map(([key, label]) => ({
-      key: `builtin:${key}`, label, perms: BUILTIN_ROLE_TEMPLATES[key], isBuiltin: true,
+      key: `builtin:${key}`, label, isBuiltin: true,
     })),
     ...customRoles.map(r => ({
-      key: `custom:${r.id}`, label: r.name, perms: r.permissions, isBuiltin: false,
+      key: `custom:${r.id}`, label: r.name, isBuiltin: false,
     })),
   ];
 
@@ -244,7 +371,7 @@ const StaffAccessManager = () => {
         </Button>
       </div>
       <p className="font-body text-xs text-muted-foreground mb-3">
-        Tap each section badge to cycle: <span className="text-muted-foreground">Off</span> → <span className="text-blue-400">View</span> → <span className="text-emerald-400">Edit</span> → <span className="text-purple-400">Manage</span> (Orders/Reception/Experiences) → Off. Orders Edit = take orders only; Manage = advance pipeline.
+        Assign multiple roles per staff — permissions combine (highest level wins). Tap badges to cycle individual permissions.
       </p>
 
       {/* Custom Roles Management */}
@@ -277,6 +404,7 @@ const StaffAccessManager = () => {
         {employees.map((emp: any) => {
           const empPerms = getEmpPermissions(emp.id);
           const empIsAdmin = empPerms.includes('admin');
+          const empRoles = getEmpRoles(emp.id);
 
           return (
             <div key={emp.id} className="border border-border rounded-lg p-3">
@@ -284,28 +412,45 @@ const StaffAccessManager = () => {
                 {emp.display_name || emp.name}
               </p>
 
-              {/* Role template selector */}
-              <div className="mb-2">
-                <Select onValueChange={(val) => {
-                  const opt = allRoleOptions.find(o => o.key === val);
-                  if (opt) applyRole(emp.id, opt.perms);
-                }}>
-                  <SelectTrigger className="h-8 text-xs font-display tracking-wider">
-                    <SelectValue placeholder="Apply role template…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__divider_builtin" disabled className="text-[10px] text-muted-foreground">— Built-in —</SelectItem>
-                    {Object.entries(BUILTIN_ROLE_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={`builtin:${key}`} className="text-xs">{label}</SelectItem>
-                    ))}
-                    {customRoles.length > 0 && (
-                      <SelectItem value="__divider_custom" disabled className="text-[10px] text-muted-foreground">— Custom —</SelectItem>
-                    )}
-                    {customRoles.map(r => (
-                      <SelectItem key={r.id} value={`custom:${r.id}`} className="text-xs">{r.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Assigned Roles as pills */}
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {empRoles.map(er => (
+                  <Badge key={er.id} variant="secondary" className="font-display text-[11px] tracking-wider gap-1 pr-1">
+                    {getRoleLabel(er.role_key, customRoles)}
+                    <button
+                      onClick={() => removeRole(emp.id, er.id, er.role_key)}
+                      className="ml-0.5 rounded-full hover:bg-destructive/20 p-0.5"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                ))}
+                {addingRoleFor === emp.id ? (
+                  <Select onValueChange={(val) => { addRole(emp.id, val); }}>
+                    <SelectTrigger className="h-6 text-[11px] font-display tracking-wider w-40 border-dashed">
+                      <SelectValue placeholder="Select role…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__divider_builtin" disabled className="text-[10px] text-muted-foreground">— Built-in —</SelectItem>
+                      {Object.entries(BUILTIN_ROLE_LABELS).map(([key, label]) => (
+                        <SelectItem key={key} value={`builtin:${key}`} className="text-xs">{label}</SelectItem>
+                      ))}
+                      {customRoles.length > 0 && (
+                        <SelectItem value="__divider_custom" disabled className="text-[10px] text-muted-foreground">— Custom —</SelectItem>
+                      )}
+                      {customRoles.map(r => (
+                        <SelectItem key={r.id} value={`custom:${r.id}`} className="text-xs">{r.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <button
+                    onClick={() => setAddingRoleFor(emp.id)}
+                    className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full border border-dashed border-border text-[11px] font-display tracking-wider text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
+                  >
+                    <Plus className="h-2.5 w-2.5" /> Add Role
+                  </button>
+                )}
               </div>
 
               {/* Admin toggle */}
@@ -362,6 +507,22 @@ const StaffAccessManager = () => {
               <Input value={roleName} onChange={e => setRoleName(e.target.value)}
                 placeholder="e.g. Massage Manager" className="bg-secondary border-border text-foreground font-body mt-1" />
             </div>
+
+            {/* Base Template picker */}
+            <div>
+              <label className="font-body text-xs text-muted-foreground">Start from template (optional)</label>
+              <Select onValueChange={prefillFromTemplate}>
+                <SelectTrigger className="h-8 text-xs font-display tracking-wider mt-1">
+                  <SelectValue placeholder="Pick a base template…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(BUILTIN_ROLE_LABELS).map(([key, label]) => (
+                    <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div>
               <p className="font-body text-xs text-muted-foreground mb-2">Permissions (tap to cycle)</p>
               <div className="space-y-1.5">
