@@ -30,6 +30,14 @@ type Schedule = {
   time_in: string; time_out: string; created_at: string; updated_at: string;
 };
 
+type TimelineSchedule = Schedule & {
+  render_id: string;
+  render_time_in: string;
+  render_time_out: string;
+  continues_from_previous?: boolean;
+  continues_to_next?: boolean;
+};
+
 const from = (table: string) => supabase.from(table as any);
 
 const TIMELINE_START = 0;
