@@ -438,9 +438,20 @@ const StaffAccessManager = () => {
 
           return (
             <div key={emp.id} className="border border-border rounded-lg p-3">
-              <p className="font-display text-sm text-foreground tracking-wider mb-2">
-                {emp.display_name || emp.name}
-              </p>
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                <p className="font-display text-sm text-foreground tracking-wider">
+                  {emp.display_name || emp.name}
+                </p>
+                {empRoles.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {empRoles.map((er, idx) => (
+                      <Badge key={er.id} variant={idx === 0 ? 'default' : 'secondary'} className="font-display text-[10px] tracking-wider">
+                        {getRoleLabel(er.role_key, customRoles)}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Assigned Roles as pills */}
               <div className="flex flex-wrap gap-1.5 mb-2">
