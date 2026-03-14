@@ -203,7 +203,7 @@ const ServiceBoard = ({ department }: ServiceBoardProps) => {
     toast.success('Order updated');
   };
 
-  const totalActive = columns.New.length + columns.Preparing.length + columns.Ready.length + columns['Bill Out'].length;
+  const totalActive = columns.New.length + columns.Preparing.length + columns.Ready.length + (department !== 'reception' ? 0 : 0) + columns['Bill Out'].length;
   const KANBAN_COLS = department === 'reception' ? KANBAN_COLS_RECEPTION : KANBAN_COLS_DEFAULT;
 
   return (
