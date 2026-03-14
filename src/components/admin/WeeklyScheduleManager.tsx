@@ -101,7 +101,7 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
   const [selectedDayIdx, setSelectedDayIdx] = useState(() => new Date().getDay());
 
   const [shiftModal, setShiftModal] = useState<{ mode: 'add' | 'edit'; schedule?: Schedule; date?: string; empId?: string } | null>(null);
-  const [shiftForm, setShiftForm] = useState({ employee_id: '', schedule_date: '', time_in: '07:00', time_out: '16:00', selected_days: [] as string[] });
+  const [shiftForm, setShiftForm] = useState({ employee_id: '', schedule_date: '', time_in: '07:00', time_out: '16:00', selected_days: [] as string[], selected_employees: [] as string[] });
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const deleteIdRef = useRef<string | null>(null);
   useEffect(() => { deleteIdRef.current = deleteId; }, [deleteId]);
