@@ -491,12 +491,21 @@ const ExperiencesPage = ({ embedded = false }: { embedded?: boolean }) => {
         <div className="mb-6 space-y-2">
           <h2 className="font-display text-xs tracking-wider text-muted-foreground uppercase">Upcoming Tours</h2>
           {upcomingTours.slice(0, 10).map((tour: any) => (
-            <div key={tour.id} className="border border-border rounded-lg p-3 flex justify-between items-center">
+            <div key={tour.id} className="border border-border rounded-lg p-3 flex justify-between items-start cursor-pointer" onClick={() => canDoEdit && setEditTour(tour)}>
               <div>
-                <p className="font-display text-sm text-foreground tracking-wider">{tour.tour_name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-display text-sm text-foreground tracking-wider">{tour.tour_name}</p>
+                  {canDoEdit && <Pencil className="w-3 h-3 text-muted-foreground" />}
+                </div>
                 <p className="font-body text-xs text-muted-foreground">
-                  {format(new Date(tour.tour_date + 'T00:00:00'), 'MMM d')} · {tour.unit_name} · {tour.pax} pax
+                  {format(new Date(tour.tour_date + 'T00:00:00'), 'EEE, MMM d')} · {tour.unit_name} · {tour.pax} pax
                 </p>
+                {tour.notes && (
+                  <div className="flex items-start gap-1 mt-1">
+                    <StickyNote className="w-3 h-3 text-amber-400 mt-0.5 flex-shrink-0" />
+                    <p className="font-body text-[11px] text-amber-400/80 italic">{tour.notes}</p>
+                  </div>
+                )}
               </div>
               <Badge className={`font-body text-xs ${statusColor(tour.status)}`}>{tour.status}</Badge>
             </div>
