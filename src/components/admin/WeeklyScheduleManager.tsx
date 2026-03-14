@@ -32,11 +32,11 @@ type Schedule = {
 
 const from = (table: string) => supabase.from(table as any);
 
-const TIMELINE_START = 5;
-const TIMELINE_END = 22;
+const TIMELINE_START = 0;
+const TIMELINE_END = 24;
 const TIMELINE_HOURS = TIMELINE_END - TIMELINE_START;
 
-const HOURS = Array.from({ length: TIMELINE_HOURS + 1 }, (_, i) => TIMELINE_START + i);
+const HOURS = Array.from({ length: TIMELINE_HOURS }, (_, i) => TIMELINE_START + i);
 
 const fmtHour = (h: number) => {
   const ampm = h >= 12 ? 'PM' : 'AM';
@@ -56,6 +56,7 @@ const fmtTime = (t: string) => {
 const PRESETS = [
   { label: 'Morning', time_in: '07:00', time_out: '16:00' },
   { label: 'Evening', time_in: '12:00', time_out: '21:00' },
+  { label: 'Night', time_in: '21:00', time_out: '09:00' },
   { label: 'Maintenance', time_in: '08:00', time_out: '17:00' },
 ];
 
@@ -64,14 +65,18 @@ const inferShiftType = (time_in: string, time_out: string): string => {
   const tout = time_out.slice(0, 5);
   if (tin === '07:00' && tout === '16:00') return 'Morning';
   if (tin === '12:00' && tout === '21:00') return 'Evening';
+  if (tin === '21:00' && tout === '09:00') return 'Night';
   if (tin === '08:00' && tout === '17:00') return 'Maintenance';
   if ((tin === '07:00' && tout === '11:00') || (tin === '17:00' && tout === '21:00')) return 'Broken';
+  // Detect generic overnight shifts
+  if (tout < tin) return 'Night';
   return 'Custom';
 };
 
 const SHIFT_COLORS: Record<string, string> = {
   Morning: 'bg-blue-500/30 border-blue-500/50',
   Evening: 'bg-purple-500/30 border-purple-500/50',
+  Night: 'bg-indigo-500/30 border-indigo-500/50',
   Maintenance: 'bg-green-500/30 border-green-500/50',
   Broken: 'bg-orange-500/30 border-orange-500/50',
   Custom: 'bg-accent/20 border-accent/40',
@@ -80,6 +85,7 @@ const SHIFT_COLORS: Record<string, string> = {
 const SHIFT_TEXT_COLORS: Record<string, string> = {
   Morning: 'text-blue-300',
   Evening: 'text-purple-300',
+  Night: 'text-indigo-300',
   Maintenance: 'text-green-300',
   Broken: 'text-orange-300',
   Custom: 'text-accent',
@@ -272,6 +278,12 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
     ).some(s => {
       const sIn = s.time_in.slice(0, 5);
       const sOut = s.time_out.slice(0, 5);
+      // Handle overnight shifts for both existing and new
+      const existingOvernight = sOut <= sIn;
+      const newOvernight = timeOut <= timeIn;
+      if (existingOvernight && newOvernight) return true; // both overnight always overlap
+      if (existingOvernight) return timeIn >= sIn || timeOut <= sOut;
+      if (newOvernight) return sIn >= timeIn || sOut <= timeOut;
       return timeIn < sOut && timeOut > sIn;
     });
   }, [schedules]);
@@ -466,8 +478,9 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
   const ShiftBlock = ({ s, compact = false }: { s: Schedule; compact?: boolean }) => {
     const type = inferShiftType(s.time_in, s.time_out);
     const left = timeToPercent(s.time_in.slice(0, 5));
-    const right = timeToPercent(s.time_out.slice(0, 5));
-    const width = right - left;
+    const isOvernight = s.time_out.slice(0, 5) <= s.time_in.slice(0, 5);
+    const right = isOvernight ? 100 : timeToPercent(s.time_out.slice(0, 5));
+    const width = Math.max(right - left, 2);
     const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const actionClickedRef = useRef(false);
 
@@ -607,9 +620,9 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
             )}
           </div>
           <div className="flex-1 relative" style={{ minHeight: compact ? '40px' : '48px' }}>
-            {HOURS.map((h, i) => (
+            {HOURS.filter(h => h % 3 === 0).map(h => (
               <div key={h} className="absolute top-0 bottom-0 border-r border-border/30"
-                style={{ left: `${(i / TIMELINE_HOURS) * 100}%` }} />
+                style={{ left: `${((h - TIMELINE_START) / TIMELINE_HOURS) * 100}%` }} />
             ))}
             {shifts.map(s => <ShiftBlock key={s.id} s={s} compact={compact} />)}
             <TooltipProvider delayDuration={200}>
@@ -699,10 +712,10 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
     <div className="flex border-b border-border">
       <div className={`shrink-0 ${compact ? 'w-16' : 'w-28'} border-r border-border`} />
       <div className="flex-1 relative" style={{ height: '24px' }}>
-        {HOURS.map((h, i) => (
+        {HOURS.filter(h => h % 3 === 0).map(h => (
           <div key={h} className="absolute top-0 bottom-0 flex items-center"
-            style={{ left: `${(i / TIMELINE_HOURS) * 100}%` }}>
-            <span className={`font-body ${compact ? 'text-[8px]' : 'text-[10px]'} text-muted-foreground whitespace-nowrap pl-0.5`}>
+            style={{ left: `${((h - TIMELINE_START) / TIMELINE_HOURS) * 100}%` }}>
+            <span className={`font-body ${compact ? 'text-[7px]' : 'text-[9px]'} text-muted-foreground whitespace-nowrap pl-0.5`}>
               {fmtHour(h)}
             </span>
           </div>
