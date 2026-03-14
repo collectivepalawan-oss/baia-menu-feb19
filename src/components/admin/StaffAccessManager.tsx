@@ -544,20 +544,6 @@ const StaffAccessManager = () => {
                 placeholder="e.g. Massage Manager" className="bg-secondary border-border text-foreground font-body mt-1" />
             </div>
 
-            {/* Base Template picker */}
-            <div>
-              <label className="font-body text-xs text-muted-foreground">Start from template (optional)</label>
-              <Select onValueChange={prefillFromTemplate}>
-                <SelectTrigger className="h-8 text-xs font-display tracking-wider mt-1">
-                  <SelectValue placeholder="Pick a base template…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(BUILTIN_ROLE_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key} className="text-xs">{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
             <div>
               <p className="font-body text-xs text-muted-foreground mb-2">Permissions (tap to cycle)</p>
