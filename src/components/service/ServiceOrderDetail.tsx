@@ -199,7 +199,11 @@ const ServiceOrderDetail = ({ order, open, onOpenChange, permissions, department
 
           {actions.length === 0 && !showInvoice && (
             <p className="font-body text-sm text-muted-foreground text-center py-2">
-              {isAutoPayable && order.status === 'Served' ? 'Order auto-closed — charged to room/tab' : 'No actions available'}
+              {isViewOnlyDepartment
+                ? 'View only in cashier queue'
+                : isAutoPayable && order.status === 'Served'
+                  ? 'Order auto-closed — charged to room/tab'
+                  : 'No actions available'}
             </p>
           )}
 
