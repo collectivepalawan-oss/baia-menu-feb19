@@ -61,6 +61,7 @@ const ServiceHeader = ({ department }: ServiceHeaderProps) => {
               <span>Order</span>
             </Button>
           )}
+          <ThemeToggle />
           {staffName && (
             <span className="font-body text-xs text-muted-foreground hidden sm:inline truncate max-w-[140px]">{staffName}</span>
           )}
