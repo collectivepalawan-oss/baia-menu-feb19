@@ -278,6 +278,12 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
     ).some(s => {
       const sIn = s.time_in.slice(0, 5);
       const sOut = s.time_out.slice(0, 5);
+      // Handle overnight shifts for both existing and new
+      const existingOvernight = sOut <= sIn;
+      const newOvernight = timeOut <= timeIn;
+      if (existingOvernight && newOvernight) return true; // both overnight always overlap
+      if (existingOvernight) return timeIn >= sIn || timeOut <= sOut;
+      if (newOvernight) return sIn >= timeIn || sOut <= timeOut;
       return timeIn < sOut && timeOut > sIn;
     });
   }, [schedules]);
