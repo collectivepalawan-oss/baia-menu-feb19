@@ -84,6 +84,8 @@ const CashierBoard = () => {
         .from('orders')
         .select('*')
         .eq('status', 'Paid')
+        .is('room_id', null)
+        .neq('payment_type', 'Charge to Room')
         .gte('created_at', dayStart)
         .lte('created_at', dayEnd)
         .order('created_at', { ascending: false })
