@@ -276,10 +276,9 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
     });
   }, [schedules]);
 
-  const saveShift = async () => {
-    if (!shiftForm.employee_id) return;
+  const saveShift = async (keepOpen = false) => {
     if (shiftModal?.mode === 'edit' && shiftModal.schedule) {
-      // Single edit
+      if (!shiftForm.employee_id) return;
       if (checkOverlap(shiftForm.employee_id, shiftForm.schedule_date, shiftForm.time_in, shiftForm.time_out, shiftModal.schedule.id)) {
         toast.warning('This shift overlaps with an existing shift for this employee');
       }
@@ -289,23 +288,30 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
       }).eq('id', shiftModal.schedule.id);
       toast.success('Shift updated');
     } else {
-      // Multi-day insert
+      // Multi-day + multi-employee insert
       const days = shiftForm.selected_days.length > 0 ? shiftForm.selected_days : [shiftForm.schedule_date];
+      const emps = shiftForm.selected_employees.length > 0 ? shiftForm.selected_employees : (shiftForm.employee_id ? [shiftForm.employee_id] : []);
       if (days.length === 0) { toast.error('Select at least one day'); return; }
+      if (emps.length === 0) { toast.error('Select at least one employee'); return; }
       let overlapCount = 0;
-      days.forEach(d => {
-        if (checkOverlap(shiftForm.employee_id, d, shiftForm.time_in, shiftForm.time_out)) overlapCount++;
+      const rows: { employee_id: string; schedule_date: string; time_in: string; time_out: string }[] = [];
+      emps.forEach(empId => {
+        days.forEach(d => {
+          if (checkOverlap(empId, d, shiftForm.time_in, shiftForm.time_out)) overlapCount++;
+          rows.push({ employee_id: empId, schedule_date: d, time_in: shiftForm.time_in, time_out: shiftForm.time_out });
+        });
       });
       if (overlapCount > 0) toast.warning(`${overlapCount} shift(s) overlap with existing shifts`);
-      const rows = days.map(d => ({
-        employee_id: shiftForm.employee_id, schedule_date: d,
-        time_in: shiftForm.time_in, time_out: shiftForm.time_out,
-      }));
       await supabase.from('weekly_schedules').insert(rows);
       toast.success(`${rows.length} shift(s) added`);
     }
-    setShiftModal(null);
     qc.invalidateQueries({ queryKey: ['weekly-schedules'] });
+    if (keepOpen) {
+      // Reset employees but keep time/days for rapid re-use
+      setShiftForm(prev => ({ ...prev, selected_employees: [], employee_id: '' }));
+    } else {
+      setShiftModal(null);
+    }
   };
 
   const addBrokenShift = async () => {
