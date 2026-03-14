@@ -11,7 +11,7 @@ import ServiceOrderCard from './ServiceOrderCard';
 import ServiceOrderDetail from './ServiceOrderDetail';
 
 const KANBAN_COLS_DEFAULT = ['New', 'Preparing', 'Ready'] as const;
-const KANBAN_COLS_RECEPTION = ['New', 'Preparing', 'Ready', 'Bill Out'] as const;
+const KANBAN_COLS_RECEPTION = ['New', 'Preparing', 'Ready'] as const;
 
 const COL_COLORS: Record<string, string> = {
   New: 'border-t-gold',
@@ -129,16 +129,15 @@ const ServiceBoard = ({ department }: ServiceBoardProps) => {
         else if (deptStatus === 'ready' || o.status === 'Ready') cols.Ready.push(o);
       });
     } else {
-      // Reception: Served orders go to Bill Out, only Paid goes to Completed
+      // Reception: Served and Paid go to Completed
       relevantOrders.forEach(o => {
         if (o.status === 'New') cols.New.push(o);
         else if (o.status === 'Preparing') cols.Preparing.push(o);
         else if (o.status === 'Ready') cols.Ready.push(o);
-        else if (o.status === 'Paid') {
+        else if (o.status === 'Paid' || o.status === 'Served') {
           const isRoomOrder = o.room_id || o.payment_type === 'Charge to Room';
           if (!isRoomOrder) cols.Completed.push(o);
         }
-        else if (o.status === 'Served') cols['Bill Out'].push(o);
       });
     }
     return cols;
@@ -234,7 +233,7 @@ const ServiceBoard = ({ department }: ServiceBoardProps) => {
       {/* Kanban columns — horizontal on tablet, vertical on phone */}
       <div className="flex-1 overflow-auto">
         {/* Tablet/Desktop: horizontal kanban */}
-        <div className={`hidden md:grid gap-3 p-4 ${department === 'reception' ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
+        <div className="hidden md:grid gap-3 p-4 md:grid-cols-3">
           {KANBAN_COLS.map(col => (
             <div key={col} className={`flex flex-col border-t-4 ${COL_COLORS[col]} rounded-t-lg bg-secondary/30`}>
               <div className="px-3 py-2 flex items-center justify-between">
@@ -275,7 +274,7 @@ const ServiceBoard = ({ department }: ServiceBoardProps) => {
                 {completedOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-3">
-                <div className={`grid gap-3 max-h-[40vh] overflow-y-auto ${department === 'reception' ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                <div className="grid gap-3 max-h-[40vh] overflow-y-auto grid-cols-3">
                   {columns.Completed.map(order => (
                     <ServiceOrderCard
                       key={order.id}
@@ -323,9 +322,7 @@ const MobileTabView = ({ columns, department, permissions, onAction, onOpenDetai
   const [tab, setTab] = useState<string>('New');
   const [completedOpen, setCompletedOpen] = useState(false);
 
-  const MOBILE_TABS = department === 'reception'
-    ? ['New', 'Preparing', 'Ready', 'Bill Out'] as const
-    : ['New', 'Preparing', 'Ready'] as const;
+  const MOBILE_TABS = ['New', 'Preparing', 'Ready'] as const;
 
   return (
     <div className="md:hidden flex flex-col h-full">
