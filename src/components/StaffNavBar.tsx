@@ -7,6 +7,7 @@ import { hasAccess } from '@/lib/permissions';
 import { getHomeRoute } from '@/lib/getHomeRoute';
 import { Badge } from '@/components/ui/badge';
 import { getStaffSession, clearStaffSession } from '@/lib/session';
+import ThemeToggle from '@/components/ThemeToggle';
 
 /** Color map for department badges — HSL values from design tokens where possible */
 const DEPT_COLORS: Record<string, string> = {
