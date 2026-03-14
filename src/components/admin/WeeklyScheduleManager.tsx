@@ -151,12 +151,13 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
 
   const startStr = format(weekStart, 'yyyy-MM-dd');
   const endStr = format(addDays(weekStart, 6), 'yyyy-MM-dd');
+  const fetchStartStr = format(addDays(weekStart, -1), 'yyyy-MM-dd');
 
   const { data: schedules = [] } = useQuery<Schedule[]>({
     queryKey: ['weekly-schedules', startStr],
     queryFn: async () => {
       const { data } = await supabase.from('weekly_schedules').select('*')
-        .gte('schedule_date', startStr).lte('schedule_date', endStr);
+        .gte('schedule_date', fetchStartStr).lte('schedule_date', endStr);
       return (data || []) as Schedule[];
     },
   });
