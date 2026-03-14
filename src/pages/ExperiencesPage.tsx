@@ -531,10 +531,11 @@ const ExperiencesPage = ({ embedded = false }: { embedded?: boolean }) => {
           {requests.slice(0, 15).map((req: any) => (
             <div key={req.id} className={`border rounded-lg p-3 space-y-1 ${req.status === 'pending' ? 'border-amber-500/30 bg-amber-500/5 new-order-card' : 'border-border'}`}>
               <div className="flex justify-between items-start">
-                <div>
+                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => canDoEdit && setEditRequest(req)}>
                   <div className="flex items-center gap-2">
                     {getRequestIcon(req.request_type)}
                     <p className="font-display text-sm text-foreground tracking-wider">{req.request_type}</p>
+                    {canDoEdit && <Pencil className="w-3 h-3 text-muted-foreground" />}
                   </div>
                   <p className="font-body text-xs text-muted-foreground">{req.guest_name} · {req.details}</p>
                   <p className="font-body text-[10px] text-muted-foreground">{format(new Date(req.created_at), 'MMM d, h:mm a')}</p>
