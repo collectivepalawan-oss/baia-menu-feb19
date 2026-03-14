@@ -17,7 +17,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { format, startOfWeek, addDays, isToday, isBefore } from 'date-fns';
-import { Plus, Pencil, Trash2, Calendar as CalIcon, Clock, Copy, ChevronLeft, ChevronRight, ClipboardList, MapPin, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Calendar as CalIcon, Clock, Copy, ChevronLeft, ChevronRight, ClipboardList, MapPin, Sparkles, CheckCircle2, Check } from 'lucide-react';
 
 type Employee = { id: string; name: string };
 type Task = {
