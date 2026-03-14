@@ -35,6 +35,7 @@ const ExperiencesPage = ({ embedded = false }: { embedded?: boolean }) => {
   const staffName = session?.name || 'Staff';
 
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [editTour, setEditTour] = useState<any>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
