@@ -709,7 +709,7 @@ const AdminPage = () => {
           {/* HOUSEKEEPING TAB */}
           {(isAdmin || hasAccess(perms, 'housekeeping')) && (
             <TabsContent value="housekeeping">
-              <HousekeepingConfig readOnly={readOnly('housekeeping')} />
+              <HousekeeperPage embedded />
             </TabsContent>
           )}
 

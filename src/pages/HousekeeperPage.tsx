@@ -250,6 +250,7 @@ const HousekeeperPage = ({ embedded = false }: { embedded?: boolean }) => {
           </div>
         )}
       </section>
+      )}
 
       {/* In Progress */}
       <section className="mb-6">
