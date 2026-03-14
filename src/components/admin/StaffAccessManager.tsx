@@ -500,17 +500,23 @@ const StaffAccessManager = () => {
                 </p>
               )}
 
-              {/* Granular permissions */}
+              {/* Granular permissions — read-only when roles are assigned (roles are source of truth) */}
               <div className={`space-y-1.5 mt-2 ${empIsAdmin ? 'opacity-40 pointer-events-none' : ''}`}>
+                {empRoles.length > 0 && !empIsAdmin && (
+                  <p className="font-body text-[10px] text-muted-foreground italic mb-1">
+                    Permissions set by roles — remove roles to edit manually
+                  </p>
+                )}
                 {GRANULAR_PERMISSIONS.map(({ key, label }) => {
                   const level = empIsAdmin ? 'edit' : getPermissionLevel(empPerms, key);
+                  const hasRoles = empRoles.length > 0;
                   return (
                     <div key={key} className="flex items-center justify-between">
                       <span className="font-body text-xs text-muted-foreground">{label}</span>
                       <button
-                        onClick={() => cyclePermission(emp.id, key)}
-                        disabled={empIsAdmin}
-                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-display tracking-wider border transition-colors ${LEVEL_COLORS[level]}`}
+                        onClick={() => !hasRoles && cyclePermission(emp.id, key)}
+                        disabled={empIsAdmin || hasRoles}
+                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-display tracking-wider border transition-colors ${LEVEL_COLORS[level]} ${hasRoles ? 'opacity-60 cursor-default' : ''}`}
                       >
                         {LEVEL_LABELS[level]}
                       </button>
