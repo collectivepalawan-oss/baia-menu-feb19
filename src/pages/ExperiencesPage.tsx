@@ -460,10 +460,11 @@ const ExperiencesPage = ({ embedded = false }: { embedded?: boolean }) => {
             {todayBookings.map((b: any) => (
               <div key={b.id} className="border border-border rounded-lg p-3 space-y-2">
                 <div className="flex justify-between items-start">
-                  <div>
+                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => { if (canDoEdit) { setEditTourSource('tour_bookings'); setEditTour(b); } }}>
                     <div className="flex items-center gap-2">
-                      <Palmtree className="w-3.5 h-3.5 text-primary" />
-                      <p className="font-display text-sm text-foreground tracking-wider">{b.tour_name}</p>
+                       <Palmtree className="w-3.5 h-3.5 text-primary" />
+                       <p className="font-display text-sm text-foreground tracking-wider">{b.tour_name}</p>
+                       {canDoEdit && <Pencil className="w-3 h-3 text-muted-foreground" />}
                     </div>
                     <p className="font-body text-xs text-muted-foreground mt-1">
                       {b.pickup_time || ''} · {b.guest_name} · {b.pax} pax
