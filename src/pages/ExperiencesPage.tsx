@@ -594,6 +594,15 @@ const ExperiencesPage = ({ embedded = false }: { embedded?: boolean }) => {
           </CollapsibleContent>
         </Collapsible>
       )}
+
+      {/* Edit Tour Modal */}
+      <EditTourModal
+        open={!!editTour}
+        onOpenChange={(open) => !open && setEditTour(null)}
+        tour={editTour}
+        unitName={editTour?.unit_name || ''}
+        bookingId={editTour?.booking_id || null}
+      />
     </div>
   );
 };
