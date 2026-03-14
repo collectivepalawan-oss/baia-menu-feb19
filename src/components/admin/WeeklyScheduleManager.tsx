@@ -528,18 +528,17 @@ const WeeklyScheduleManager = ({ readOnly = false }: { readOnly?: boolean }) => 
         onTouchCancel={handleTouchEnd}
         data-shift-block="true"
       >
-        <div className={`px-1 flex items-center gap-0.5 w-full min-h-[40px] ${compact ? 'min-h-[36px]' : 'min-h-[44px]'}`}>
-          <div className="flex-1 min-w-0">
-            <div className={`text-[10px] font-body font-semibold ${SHIFT_TEXT_COLORS[type]} truncate`}>
-              {empMap[s.employee_id]?.name || '?'}
-            </div>
-            {!compact && (
+          <div className={`px-1 flex items-center gap-0.5 w-full min-h-[40px] ${compact ? 'min-h-[36px]' : 'min-h-[44px]'}`}>
+            <div className="flex-1 min-w-0">
+              <div className={`text-[10px] font-body font-semibold ${SHIFT_TEXT_COLORS[type]} truncate`}>
+                {empMap[s.employee_id]?.name || '?'}
+              </div>
               <div className="text-[9px] font-body text-foreground/60 truncate">
                 {fmtTime(s.time_in)} – {fmtTime(s.time_out)}
+                {isOvernight && <span className="ml-0.5 text-[8px] text-indigo-400">⏩</span>}
               </div>
-            )}
-            <span className={`text-[8px] font-display ${SHIFT_TEXT_COLORS[type]} opacity-80`}>{type}</span>
-          </div>
+              <span className={`text-[8px] font-display ${SHIFT_TEXT_COLORS[type]} opacity-80`}>{type}</span>
+            </div>
           {!readOnly && (
             <div className="flex gap-0.5 shrink-0">
               <button
