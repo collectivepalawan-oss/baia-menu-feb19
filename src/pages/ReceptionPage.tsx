@@ -1023,10 +1023,12 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
           <h2 className="font-display text-xs tracking-wider text-foreground uppercase">🏨 Current Guests ({occupiedUnits.length})</h2>
           {occupiedUnits.map((unit: any) => {
             const booking = getActiveBooking(unit);
+            const workflow = getUnitWorkflow(unit);
             const guest = (booking as any)?.resort_ops_guests;
             const nights = booking ? Math.max(1, Math.ceil((new Date(booking.check_out).getTime() - new Date(booking.check_in).getTime()) / 86400000)) : 0;
             const roomOrders = recentOrders.filter((o: any) => o.location_detail === unit.name);
-            const isDepartingToday = booking?.check_out === today;
+            const isDepartingToday = Boolean(workflow.pendingDeparture);
+            const incomingArrival = workflow.pendingArrival;
 
             return (
               <div key={unit.id} className={`border rounded-lg p-3 space-y-2 ${isDepartingToday ? 'border-amber-500/40 bg-amber-500/5' : 'border-border'}`}>
@@ -1041,13 +1043,22 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
                     {booking && Number(booking.room_rate) > 0 && (
                       <p className="font-body text-[10px] text-muted-foreground">₱{Number(booking.room_rate).toLocaleString()}/night · {booking.adults} adult{booking.adults > 1 ? 's' : ''}{booking.children > 0 ? `, ${booking.children} child` : ''}</p>
                     )}
+                    {incomingArrival && (
+                      <p className="font-body text-[10px] text-blue-400">
+                        Next arrival: {incomingArrival.resort_ops_guests?.full_name || 'Guest'}
+                        {workflow.isExtensionReview ? ' · Review extension' : ' · Ready for check-in after checkout'}
+                      </p>
+                    )}
                     {guest?.phone && <p className="font-body text-[10px] text-muted-foreground">📞 {guest.phone}</p>}
                     {guest?.email && <p className="font-body text-[10px] text-muted-foreground">✉️ {guest.email}</p>}
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <Badge className={`font-body text-[10px] ${isDepartingToday ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-red-500/20 text-red-400 border-red-500/40'}`}>
-                      {isDepartingToday ? 'Departing' : 'Occupied'}
+                      {isDepartingToday ? 'Departure Pending' : 'Occupied'}
                     </Badge>
+                    {workflow.isExtensionReview && (
+                      <Badge className="font-body text-[10px] bg-blue-500/20 text-blue-400 border-blue-500/40">Review</Badge>
+                    )}
                     {allDisputes.some((d: any) => d.unit_name === unit.name) && (
                       <Badge className="font-body text-[10px] bg-amber-500/20 text-amber-400 border-amber-500/40 flex items-center gap-0.5">
                         <AlertTriangle className="w-2.5 h-2.5" /> Dispute
