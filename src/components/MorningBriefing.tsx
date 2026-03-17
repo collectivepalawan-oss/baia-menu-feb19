@@ -204,7 +204,7 @@ function useMorningBriefing() {
           occupiedRooms,
           totalRooms,
           arrivalsToday: pendingArrivals.length,
-          departuresToday: todayDepartures.length,
+          departuresToday: pendingDepartures.length,
           roomsToClean,
           pendingKitchenOrders: pendingKitchenCount,
         adminTasks,
