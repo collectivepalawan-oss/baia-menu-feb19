@@ -153,7 +153,7 @@ const SetupExportCard = () => {
       const cleaningPackages = (cleaningPackagesResult.data ?? []) as LookupRow[];
       const ingredients = (ingredientsResult.data ?? []) as LookupRow[];
       const employees = (employeesResult.data ?? []) as LookupRow[];
-      const staffRoles = ((staffRolesResult.data ?? []) as Record<string, unknown>[]).map((role) => ({
+      const staffRoles = ((staffRolesResult.data ?? []) as StaffRoleRow[]).map((role) => ({
         ...role,
         permissions_json: role.permissions,
       }));
