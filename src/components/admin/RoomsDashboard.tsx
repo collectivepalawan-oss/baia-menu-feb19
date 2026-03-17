@@ -643,7 +643,7 @@ const RoomsDashboard = ({ readOnly = false, canViewDocuments = true, initialUnit
           </Button>
           <h3 className="font-display text-lg tracking-wider text-foreground">{selectedUnit.name}</h3>
           <Badge variant={booking ? 'default' : 'secondary'} className="font-body text-xs">
-            {booking ? 'Occupied' : getUnitStatus(selectedUnit) === 'to_clean' ? 'To Clean' : 'Vacant'}
+            {booking ? 'Occupied' : getTodayArrivalBooking(selectedUnit) ? 'Arrival Today' : getUnitStatus(selectedUnit) === 'to_clean' ? 'To Clean' : 'Ready'}
           </Badge>
         </div>
 
