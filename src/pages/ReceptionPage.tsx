@@ -719,6 +719,7 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
 
       qc.invalidateQueries({ queryKey: ['rooms-bookings'] });
       qc.invalidateQueries({ queryKey: ['rooms-units'] });
+      qc.invalidateQueries({ queryKey: ['morning-briefing'] });
       qc.invalidateQueries({ queryKey: ['room-transactions', unit.id] });
       setCheckInModalOpen(false);
       setCheckInBooking(null);

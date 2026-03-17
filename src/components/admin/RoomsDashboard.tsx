@@ -439,10 +439,11 @@ const RoomsDashboard = ({ readOnly = false, canViewDocuments = true, initialUnit
   const getUnitGuest = (unitName: string) => {
     const unit = units.find((u: any) => u.name === unitName);
     if (!unit || getUnitStatus(unit) !== 'occupied') return null;
-    const today = new Date().toISOString().split('T')[0];
     const resortUnit = resolveResortUnit(unitName);
     if (!resortUnit) return null;
-    return bookings.find((b: any) => b.unit_id === resortUnit.id && b.check_in <= today && b.check_out >= today) || null;
+    return bookings.find((b: any) =>
+      b.unit_id === resortUnit.id && doesBookingCoverOperationalDay(b, today)
+    ) || null;
   };
 
   const getUnitVibeRisk = (unitName: string) => {

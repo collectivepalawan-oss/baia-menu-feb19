@@ -143,12 +143,9 @@ function useMorningBriefing() {
 
       // Rooms to clean
       if (roomsToClean > 0) {
-        const dirtyNames = units
-          .filter((u) => u.status === 'dirty' || u.status === 'cleaning' || u.status === 'to_clean')
-          .map((u) => {
-            const ou = opsUnits.find((o: any) => o.id === u.id);
-            return ou?.name || 'Room';
-          });
+          const dirtyNames = units
+            .filter((u) => u.status === 'dirty' || u.status === 'cleaning' || u.status === 'to_clean')
+            .map((u) => u.unit_name || 'Room');
         opsTasks.push({
           label: `Clean ${dirtyNames.length} room${dirtyNames.length > 1 ? 's' : ''}: ${dirtyNames.join(', ')}`,
           icon: 'clean',
