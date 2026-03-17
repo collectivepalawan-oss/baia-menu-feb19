@@ -767,6 +767,7 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
         platform: walkInForm.platform,
         check_in: walkInForm.checkIn,
         check_out: walkInForm.checkOut,
+        checked_in_at: new Date().toISOString(),
         adults: parseInt(walkInForm.adults) || 1,
         children: parseInt(walkInForm.children) || 0,
         room_rate: parseFloat(walkInForm.roomRate) || 0,
