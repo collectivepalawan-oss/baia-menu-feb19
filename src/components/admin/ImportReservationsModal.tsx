@@ -251,9 +251,11 @@ function getTodayManila(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
 }
 
-function isActiveToday(checkIn: string, checkOut: string): boolean {
-  const today = getTodayManila();
-  return Boolean(checkIn && checkOut && checkIn <= today && today < checkOut);
+function shouldSyncImportedRoomAsOccupied(checkIn: string, checkOut: string): boolean {
+  return shouldTreatBookingAsOccupiedWithoutManualCheckIn(
+    { check_in: checkIn, check_out: checkOut },
+    getTodayManila(),
+  );
 }
 
 function deriveNightlyRate(row: ParsedRow): number {
