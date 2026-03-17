@@ -1,37 +1,99 @@
 
+Use this exact prompt in the cloned app:
 
-## Plan: Fix Schedule Delete & Enhance Task/Assignment Scheduling
+```text
+I’m uploading a ZIP file exported from the original app’s Admin → Setup screen. Build an import feature in this cloned app so it can accept that exact ZIP format and restore the setup data here.
 
-### Issues Found
+What to build
+- Add a new “Upload Setup Data” card in Admin → Setup, placed near the existing setup forms.
+- Accept a `.zip` file exported by the original app’s Setup export tool.
+- Parse the ZIP client-side and read these CSV files if present:
+  - resort_profile.csv
+  - invoice_settings.csv
+  - billing_config.csv
+  - payment_methods.csv
+  - resort_tables.csv
+  - order_types.csv
+  - menu_categories.csv
+  - room_types.csv
+  - housekeeping_checklists.csv
+  - cleaning_packages.csv
+  - cleaning_package_items.csv
+  - employees.csv
+  - employee_roles.csv
+  - employee_permissions.csv
+  - staff_roles.csv
+  - README.txt (optional, ignore for import)
 
-1. **Delete button bug**: The trash icon on shift blocks triggers `setDeleteId(s.id)`, but the parent div's `onClick={() => openEdit(s)}` fires simultaneously despite `stopPropagation`. On mobile, the tiny button (3x3 icon) is nearly impossible to tap. The AlertDialog `onOpenChange={() => setDeleteId(null)}` also races with the confirm action.
+Import requirements
+- Keep this in the same style as the existing bulk import modals already in the app.
+- Show:
+  - file picker
+  - import button
+  - preview/summary of what was found in the ZIP
+  - success/error counts
+  - scrollable error details
+  - warning that this includes sensitive employee login/PIN-related data
+- Validate before writing anything:
+  - confirm required CSVs are readable
+  - reject malformed CSV rows with row-level errors
+  - show missing-file warnings without crashing
+- Use a safe dependency order for import:
+  1. resort_profile
+  2. invoice_settings
+  3. billing_config
+  4. payment_methods
+  5. resort_tables
+  6. order_types
+  7. menu_categories
+  8. room_types
+  9. staff_roles
+  10. employees
+  11. employee_roles
+  12. employee_permissions
+  13. housekeeping_checklists
+  14. cleaning_packages
+  15. cleaning_package_items
 
-2. **Missing scheduling features**: The schedule only manages time shifts. There's no way to assign tasks like housecleaning, reception duty, or track completion from within the schedule view.
+How to import
+- Preserve exported UUID ids when possible so relationships stay intact.
+- Prefer upsert behavior instead of blind duplicate inserts.
+- If a row already exists by `id`, update it.
+- If ids are missing/unusable, fall back to helper fields:
+  - room_type_name
+  - package_name
+  - ingredient_name
+  - employee_name
+  - role_name
+- For single-record config tables like resort_profile, invoice_settings, and billing_config:
+  - if a row already exists, update the existing row with imported values instead of creating duplicates.
+- Import full employee records exactly as exported, including password_hash and other login/PIN-related fields.
+- Import staff roles, employee roles, and employee permissions so access setup is restored too.
 
-### Changes
+Important compatibility handling
+- The export ZIP does NOT contain an ingredients.csv file, but `cleaning_package_items.csv` may contain `ingredient_name`.
+- Make the importer handle this gracefully:
+  - first try matching by ingredient_id
+  - if not found, match by ingredient_name
+  - if still not found, auto-create the ingredient with safe defaults, then continue the mapping
+- Do the same kind of helper matching for room types, packages, employees, and staff roles if ids don’t resolve.
 
-**1. Fix Delete Button** (`WeeklyScheduleManager.tsx`)
-- Make `confirmDelete` capture `deleteId` before the dialog closes by saving it in a ref or local variable
-- Increase touch target size for edit/delete buttons on shift blocks
-- Prevent edit modal from opening when clicking edit/delete icons (the `stopPropagation` exists but the parent click handler on the entire timeline area also fires)
+Technical expectations
+- Reuse existing patterns from the app’s current bulk import modals.
+- Use client-side ZIP parsing and CSV parsing.
+- Add clear toast messages for success/failure.
+- Invalidate/refetch relevant admin queries after import completes.
+- Do not change the export format in the source app; make this importer compatible with the ZIP format already produced there.
+- Keep the UX simple: upload ZIP → validate → import → show result summary.
 
-**2. Add Task/Assignment Creation from Schedule** (`WeeklyScheduleManager.tsx`)
-- Add an "Assign Task" button alongside "Add Shift" 
-- New modal to create a task assignment: select employee, pick type (Housecleaning, Reception, Custom), set date/time, add notes
-- For housecleaning: select a room/unit to clean, auto-creates a `housekeeping_orders` entry assigned to the selected employee
-- For other tasks: creates an `employee_tasks` entry with due date and description
-- Tasks appear as colored pills on the timeline (already partially implemented)
+Please implement it now, and make the importer specifically compatible with the setup export generated by the original app.
+```
 
-**3. Show Completion Info on Task Detail** (`WeeklyScheduleManager.tsx`)
-- In the task detail dialog, show who completed the task and when (`completed_at`)
-- For housekeeping pills, show completion status (`cleaning_completed_at`, `completed_by_name`)
-- Make housekeeping pills clickable to show full details (room, status, who inspected/cleaned)
+Recommended expectation for the cloned app:
+- It should add a Setup import card next to the existing setup tools.
+- It should accept the ZIP directly.
+- It should restore the exported setup and staff data without me manually splitting the files.
 
-**4. Enhance Task Detail Dialog** (`WeeklyScheduleManager.tsx`)
-- Add edit capability: change title, description, due date, reassign to different employee
-- Add delete capability for tasks
-- Show completion audit trail
-
-### Files to Edit
-- `src/components/admin/WeeklyScheduleManager.tsx` — all changes in this single file
-
+Technical note
+- The current export format includes helper columns for mapping, so the importer should use those helpers instead of assuming every foreign key id will already exist in the cloned app.
+- The importer should be defensive and idempotent, because I may need to run it more than once while onboarding a new cloned app.
