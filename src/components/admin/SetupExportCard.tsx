@@ -19,6 +19,14 @@ type LookupRow = {
   table_name?: string | null;
 };
 
+type StaffRoleRow = {
+  id: string;
+  key?: string | null;
+  name?: string | null;
+  permissions?: unknown;
+  created_at?: string | null;
+};
+
 const toCsvValue = (value: unknown) => {
   if (value === null || value === undefined) return '';
   if (value instanceof Date) return value.toISOString();
