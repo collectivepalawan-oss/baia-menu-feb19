@@ -749,7 +749,8 @@ const AdminPage = () => {
           {(isAdmin || hasAccess(perms, 'setup')) && (
             <TabsContent value="settings" className="space-y-8">
               <div className={readOnly('setup') ? 'pointer-events-none opacity-70' : ''}>
-                <ResortProfileForm />
+                <SetupExportCard />
+                <div className="mt-8"><ResortProfileForm /></div>
 
                 <section className="mt-8">
                   <h3 className="font-display text-sm tracking-wider text-foreground mb-4">Kitchen Settings</h3>
