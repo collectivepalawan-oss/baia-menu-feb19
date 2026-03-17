@@ -108,7 +108,10 @@ export const resolveOperationalUnitWorkflow = <TBooking extends OperationalBooki
       : derivedOccupiedBooking;
 
   const pendingDeparture =
-    todayDeparture && !isExtensionReview && (occupiedStatus || Boolean(derivedOccupiedBooking))
+    !housekeepingStatus &&
+    todayDeparture &&
+    !isExtensionReview &&
+    (occupiedStatus || Boolean(derivedOccupiedBooking))
       ? todayDeparture
       : null;
 
