@@ -40,6 +40,7 @@ import OrderArchive from '@/components/admin/OrderArchive';
 import GuestPortalConfig from '@/components/admin/GuestPortalConfig';
 import DepartmentOrdersView from '@/components/DepartmentOrdersView';
 import IntegrationReadinessDashboard from '@/components/integration/IntegrationReadinessDashboard';
+import LiveOpsDashboard from '@/components/admin/LiveOpsDashboard';
 
 import { deductInventoryForOrder } from '@/lib/inventoryDeduction';
 import { hasAccess, canEdit, canViewDocuments } from '@/lib/permissions';
@@ -71,6 +72,7 @@ const OPERATIONS: TabDef[] = [
   { value: 'kitchen', label: 'Kitchen', perm: 'kitchen' },
   { value: 'bar', label: 'Bar', perm: 'bar' },
   { value: 'housekeeping', label: 'Housekeeping', perm: 'housekeeping' },
+  { value: 'live-ops', label: 'Live Ops', perm: null },
 ];
 
 const PEOPLE: TabDef[] = [
@@ -1039,6 +1041,13 @@ const AdminPage = () => {
           {isAdmin && (
             <TabsContent value="guest-portal">
               <GuestPortalConfig />
+            </TabsContent>
+          )}
+
+          {/* LIVE OPS TAB */}
+          {isAdmin && (
+            <TabsContent value="live-ops">
+              <LiveOpsDashboard />
             </TabsContent>
           )}
 

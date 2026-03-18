@@ -1,51 +1,37 @@
 
 
-## Plan: Add "Live Ops" Tab to Admin Page
+## Plan: Fix Schedule Delete & Enhance Task/Assignment Scheduling
 
-### What
+### Issues Found
 
-Create a new "Live Ops" tab in the Admin page that connects to 3 external API endpoints and displays a dashboard with today's operations, guest search, and a 7-day forecast.
+1. **Delete button bug**: The trash icon on shift blocks triggers `setDeleteId(s.id)`, but the parent div's `onClick={() => openEdit(s)}` fires simultaneously despite `stopPropagation`. On mobile, the tiny button (3x3 icon) is nearly impossible to tap. The AlertDialog `onOpenChange={() => setDeleteId(null)}` also races with the confirm action.
 
-### Architecture
+2. **Missing scheduling features**: The schedule only manages time shifts. There's no way to assign tasks like housecleaning, reception duty, or track completion from within the schedule view.
 
-**New files:**
-- `src/components/admin/LiveOpsDashboard.tsx` — main dashboard component with 3 sections
+### Changes
 
-**Modified files:**
-- `src/pages/AdminPage.tsx` — add `live-ops` tab definition and TabsContent
+**1. Fix Delete Button** (`WeeklyScheduleManager.tsx`)
+- Make `confirmDelete` capture `deleteId` before the dialog closes by saving it in a ref or local variable
+- Increase touch target size for edit/delete buttons on shift blocks
+- Prevent edit modal from opening when clicking edit/delete icons (the `stopPropagation` exists but the parent click handler on the entire timeline area also fires)
 
-### Tab placement
+**2. Add Task/Assignment Creation from Schedule** (`WeeklyScheduleManager.tsx`)
+- Add an "Assign Task" button alongside "Add Shift" 
+- New modal to create a task assignment: select employee, pick type (Housecleaning, Reception, Custom), set date/time, add notes
+- For housecleaning: select a room/unit to clean, auto-creates a `housekeeping_orders` entry assigned to the selected employee
+- For other tasks: creates an `employee_tasks` entry with due date and description
+- Tasks appear as colored pills on the timeline (already partially implemented)
 
-Add to the `OPERATIONS` array (after Housekeeping):
-```
-{ value: 'live-ops', label: 'Live Ops', perm: null }
-```
-`perm: null` means admin-only access, matching audit/archive pattern.
+**3. Show Completion Info on Task Detail** (`WeeklyScheduleManager.tsx`)
+- In the task detail dialog, show who completed the task and when (`completed_at`)
+- For housekeeping pills, show completion status (`cleaning_completed_at`, `completed_by_name`)
+- Make housekeeping pills clickable to show full details (room, status, who inspected/cleaned)
 
-### LiveOpsDashboard component
+**4. Enhance Task Detail Dialog** (`WeeklyScheduleManager.tsx`)
+- Add edit capability: change title, description, due date, reassign to different employee
+- Add delete capability for tasks
+- Show completion audit trail
 
-Three sections, each fetching from the external API:
-
-1. **Today's Ops** (`GET /today-ops`)
-   - Cards showing arrival count, departure count, occupied/available rooms
-   - Tables for arrivals, departures, pending orders, unpaid reservations
-
-2. **Guest Search** (`GET /guest-search?name=...`)
-   - Search input (min 2 chars)
-   - Results showing guest info, booking history, and spending summary
-
-3. **7-Day Forecast** (`GET /forecast-7day`)
-   - Daily cards showing occupancy %, arrivals, departures, expected revenue
-   - Issues/warnings highlighted per day
-
-### API integration
-
-- Base URL: `https://rukgsweczvwowxrrcapy.supabase.co/functions/v1`
-- Auth header with the provided Bearer token (this is a public anon key, so it's fine to store in code)
-- Use `@tanstack/react-query` for data fetching with auto-refresh (today-ops and forecast every 60s)
-- Guest search uses debounced input
-
-### UI patterns
-
-Follow existing admin tab conventions: Card layouts, tables, badges, and the same typography/spacing used throughout AdminPage.
+### Files to Edit
+- `src/components/admin/WeeklyScheduleManager.tsx` — all changes in this single file
 
