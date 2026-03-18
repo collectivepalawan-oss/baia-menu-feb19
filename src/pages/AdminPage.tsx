@@ -1044,6 +1044,13 @@ const AdminPage = () => {
             </TabsContent>
           )}
 
+          {/* LIVE OPS TAB */}
+          {isAdmin && (
+            <TabsContent value="live-ops">
+              <LiveOpsDashboard />
+            </TabsContent>
+          )}
+
           {/* INTEGRATION READINESS TAB (dev only) */}
           {import.meta.env.DEV && isAdmin && (
             <TabsContent value="integration">
