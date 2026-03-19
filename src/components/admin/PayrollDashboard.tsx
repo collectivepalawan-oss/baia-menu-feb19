@@ -6,16 +6,17 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Check, X, DollarSign, Clock, Users, Download, Banknote, Star, Settings, Phone, MessageCircle, Lock, ListTodo, MessageSquare } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, X, DollarSign, Clock, Users, Download, Banknote, Star, Settings, Phone, MessageCircle, Lock, ListTodo, MessageSquare, Monitor } from 'lucide-react';
 import { format, startOfDay, endOfDay, subDays, startOfWeek, startOfMonth, previousSunday, nextSaturday, isSunday, addDays, getDay } from 'date-fns';
 import { usePayrollSettings } from '@/hooks/usePayrollSettings';
 import EmployeeTaskList from '@/components/employee/EmployeeTaskList';
 import StaffAccessManager from '@/components/admin/StaffAccessManager';
 import { buildTeamWhatsAppMessage, openWhatsApp } from '@/lib/messenger';
+import ITNotesSection from '@/components/admin/ITNotesSection';
 import { useResortProfile } from '@/hooks/useResortProfile';
 
 type DateFilter = 'today' | 'yesterday' | 'week' | 'month' | 'all';
-type SubView = 'employees' | 'shifts' | 'summary' | 'payments' | 'tasks' | 'settings';
+type SubView = 'employees' | 'shifts' | 'summary' | 'payments' | 'tasks' | 'settings' | 'it';
 
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -631,6 +632,7 @@ const PayrollDashboard = ({ readOnly = false }: { readOnly?: boolean }) => {
           { key: 'summary' as SubView, label: 'Payroll', icon: DollarSign },
           { key: 'payments' as SubView, label: 'Payments', icon: Banknote },
           { key: 'tasks' as SubView, label: 'Tasks', icon: ListTodo },
+          { key: 'it' as SubView, label: 'IT', icon: Monitor },
           { key: 'settings' as SubView, label: 'Settings', icon: Settings },
         ]).map(({ key, label, icon: Icon }) => (
           <Button key={key} size="sm" variant={subView === key ? 'default' : 'outline'}
@@ -1383,6 +1385,11 @@ const PayrollDashboard = ({ readOnly = false }: { readOnly?: boolean }) => {
             </p>
           </div>
         </div>
+      )}
+
+      {/* IT NOTES SUB-VIEW */}
+      {subView === 'it' && (
+        <ITNotesSection />
       )}
     </div>
   );
