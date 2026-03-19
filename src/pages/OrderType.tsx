@@ -55,7 +55,8 @@ const OrderType = () => {
         .from('resort_ops_bookings')
         .select('id, check_in, check_out, unit_id, resort_ops_guests(full_name), resort_ops_units(name)')
         .lte('check_in', today)
-        .gt('check_out', today);
+        .gte('check_out', today)
+        .is('checked_out_at', null);
 
       if (!bookings || bookings.length === 0) return [];
 
@@ -78,9 +79,10 @@ const OrderType = () => {
             unitId: unit.id,
             unitName: unit.unit_name,
             guestName: (b.resort_ops_guests as any)?.full_name || '',
+            isDeparting: b.check_out === today,
           };
         })
-        .filter(Boolean) as { unitId: string; unitName: string; guestName: string }[];
+        .filter(Boolean) as { unitId: string; unitName: string; guestName: string; isDeparting: boolean }[];
     },
     refetchInterval: 30000,
   });
@@ -140,11 +142,16 @@ const OrderType = () => {
                   className="flex items-center gap-3 px-4 py-3 border border-border rounded-md bg-secondary/50 hover:border-gold/60 transition-colors text-left"
                 >
                   <span className="relative flex h-2.5 w-2.5 shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500" />
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${guest.isDeparting ? 'bg-orange-400' : 'bg-blue-400'} opacity-75`} />
+                    <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${guest.isDeparting ? 'bg-orange-500' : 'bg-blue-500'}`} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <span className="font-display text-sm text-foreground tracking-wide block truncate">{guest.unitName}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-display text-sm text-foreground tracking-wide truncate">{guest.unitName}</span>
+                      {guest.isDeparting && (
+                        <span className="text-[10px] font-body text-orange-400 whitespace-nowrap">Checking out</span>
+                      )}
+                    </div>
                     {guest.guestName && (
                       <span className="font-body text-xs text-cream-dim block truncate">{guest.guestName}</span>
                     )}
