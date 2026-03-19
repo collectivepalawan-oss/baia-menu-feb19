@@ -159,7 +159,10 @@ const CheckoutModal = ({ open, onOpenChange, unitId, unitName, guestName, bookin
   const totalPayments = Math.abs(payments.reduce((s, t) => s + t.total_amount, 0));
   const paidFnbTotal = paidOrders.reduce((s, o: any) => s + (o.total || 0), 0);
   const unpaidTotal = unpaidOrders.reduce((s, o: any) => s + (o.total || 0), 0);
-  const balance = totalCharges - totalPayments + unpaidTotal;
+  // Include pending tours/requests in balance (completed ones are already on the ledger)
+  const pendingToursTotal = incompleteTours.reduce((s: number, t: any) => s + Number(t.price || 0), 0);
+  const pendingRequestsTotal = incompleteRequests.reduce((s: number, r: any) => s + Number(r.price || 0), 0);
+  const balance = totalCharges - totalPayments + unpaidTotal + pendingToursTotal + pendingRequestsTotal;
 
   const nights = booking ? Math.max(1, Math.ceil((new Date(booking.check_out).getTime() - new Date(booking.check_in).getTime()) / 86400000)) : 0;
   const roomRate = booking ? Number(booking.room_rate) : 0;
