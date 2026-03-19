@@ -581,7 +581,48 @@ const BillOutPanel = ({
             ))}
           </div>
 
-          {/* Room charging removed from cashier — handled at reception */}
+          <div className="flex items-center gap-2 my-2">
+            <Separator className="flex-1" />
+            <span className="text-xs text-muted-foreground font-display tracking-wider">OR</span>
+            <Separator className="flex-1" />
+          </div>
+
+          {!chargeToRoom ? (
+            <button
+              onClick={onChargeToRoom}
+              className="w-full min-h-[52px] rounded-xl border-2 border-border bg-card text-foreground hover:border-accent/40 font-display text-sm tracking-wider transition-all flex items-center justify-center gap-2"
+            >
+              <BedDouble className="w-4 h-4" />
+              Charge to Room
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground font-display tracking-wider">SELECT BOOKING</p>
+              {activeBookings.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">No active bookings found</p>
+              )}
+              {activeBookings.map((b: any) => (
+                <button
+                  key={b.id}
+                  onClick={() => onSelectBooking(b)}
+                  className={`w-full text-left rounded-xl border-2 p-3 transition-all ${
+                    selectedBooking?.id === b.id
+                      ? 'border-gold bg-gold/10 text-gold'
+                      : 'border-border bg-card text-foreground hover:border-accent/40'
+                  }`}
+                >
+                  <span className="font-display text-sm tracking-wider block">{b.resort_ops_units?.name || 'Unit'}</span>
+                  <span className="text-xs text-muted-foreground">{b.resort_ops_guests?.full_name || 'Guest'}</span>
+                </button>
+              ))}
+              <button
+                onClick={onChargeToRoom}
+                className="text-xs text-muted-foreground underline mt-1"
+              >
+                Cancel — select payment instead
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
