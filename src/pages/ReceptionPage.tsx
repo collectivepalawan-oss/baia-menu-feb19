@@ -776,7 +776,7 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
         .limit(1) as any;
       const newBookingId = newBookings?.[0]?.id || null;
 
-      if (walkInRate > 0 && newBookingId) {
+      if (walkInRate > 0 && newBookingId && !isWalkInOta) {
         const accomTotal = walkInNights * walkInRate;
         await (from('room_transactions') as any).insert({
           unit_id: walkInUnit.id,

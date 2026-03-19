@@ -1196,7 +1196,7 @@ const BillView = ({ session }: { session: GuestPortalSession }) => {
   const balance = totalCharges - totalPayments + unpaidOrdersTotal + activeToursTotal + activeRequestsTotal;
   const hasPending = pendingTours.length > 0 || pendingRequests.length > 0;
 
-  // Separate room charges (accommodation, room_charge, adjustment) for clear display
+  // Separate room charges for clear display (accommodation already filtered for OTA)
   const roomCharges = charges.filter((t: any) => ['accommodation', 'room_charge', 'adjustment', 'charge'].includes(t.transaction_type));
 
   return (
