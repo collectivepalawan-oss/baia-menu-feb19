@@ -50,24 +50,19 @@ const CashierBoard = () => {
     return () => { supabase.removeChannel(channel); };
   }, [qc]);
 
-  // Fetch today's orders (active)
+  // Fetch today's Served orders only — Cashier never sees New/Preparing/Ready
   const { data: orders = [] } = useQuery({
     queryKey: ['cashier-orders'],
     queryFn: async () => {
       const start = new Date();
       start.setHours(0, 0, 0, 0);
-      console.log('[CashierBoard] Fetching active orders since:', start.toISOString());
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('orders')
         .select('*')
-        .in('status', ['New', 'Preparing', 'Ready', 'Served'])
+        .eq('status', 'Served')
         .gte('created_at', start.toISOString())
         .order('created_at', { ascending: true })
         .limit(300);
-      console.log('[CashierBoard] Active orders fetched:', data?.length, 'error:', error?.message);
-      if (data?.length) {
-        console.log('[CashierBoard] Order statuses:', data.map(o => `${o.order_type}:${o.status}`).join(', '));
-      }
       return data || [];
     },
     refetchInterval: 5000,
