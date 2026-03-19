@@ -267,6 +267,7 @@ const CashierBoard = () => {
             busy={busy}
             onBack={() => setSelectedOrder(null)}
             onPreviewReceipt={() => setReceiptOrder(selectedOrder)}
+            inStayBooking={selectedOrderInStay}
           />
         ) : (
           <DailySummary completed={completedOrders} />
