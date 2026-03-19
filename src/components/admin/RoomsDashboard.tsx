@@ -17,6 +17,7 @@ import RoomBillingTab from '@/components/rooms/RoomBillingTab';
 import EditGuestModal from '@/components/rooms/EditGuestModal';
 import EditTourModal from '@/components/rooms/EditTourModal';
 import GuestActivityTimeline from '@/components/rooms/GuestActivityTimeline';
+import ClosedCheckoutsPanel from '@/components/rooms/ClosedCheckoutsPanel';
 import { compressImage } from '@/lib/imageCompress';
 import { getManilaDateKey, resolveOperationalUnitWorkflow } from '@/lib/receptionOccupancy';
 
