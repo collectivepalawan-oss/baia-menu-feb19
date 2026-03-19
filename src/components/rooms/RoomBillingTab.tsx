@@ -777,10 +777,10 @@ const RoomBillingTab = ({ unit, booking, guestName, readOnly = false }: RoomBill
         <p className="font-display text-xs tracking-wider text-muted-foreground uppercase flex items-center gap-1.5">
           <CreditCard className="w-3.5 h-3.5" /> Room Ledger
         </p>
-        {transactions.length === 0 ? (
+        {visibleTransactions.length === 0 ? (
           <p className="font-body text-sm text-muted-foreground text-center py-4">No transactions yet</p>
         ) : (
-          transactions.map(t => {
+          visibleTransactions.map(t => {
             const isEditingThisTx = editingTxId === t.id;
             return (
               <div key={t.id} className={`border rounded-lg p-3 space-y-1 ${t.transaction_type === 'accommodation' ? 'border-primary/30 bg-primary/5' : 'border-border'}`}>
