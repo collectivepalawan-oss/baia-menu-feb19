@@ -142,11 +142,16 @@ const OrderType = () => {
                   className="flex items-center gap-3 px-4 py-3 border border-border rounded-md bg-secondary/50 hover:border-gold/60 transition-colors text-left"
                 >
                   <span className="relative flex h-2.5 w-2.5 shrink-0">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500" />
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${guest.isDeparting ? 'bg-orange-400' : 'bg-blue-400'} opacity-75`} />
+                    <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${guest.isDeparting ? 'bg-orange-500' : 'bg-blue-500'}`} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <span className="font-display text-sm text-foreground tracking-wide block truncate">{guest.unitName}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-display text-sm text-foreground tracking-wide truncate">{guest.unitName}</span>
+                      {guest.isDeparting && (
+                        <span className="text-[10px] font-body text-orange-400 whitespace-nowrap">Checking out</span>
+                      )}
+                    </div>
                     {guest.guestName && (
                       <span className="font-body text-xs text-cream-dim block truncate">{guest.guestName}</span>
                     )}
