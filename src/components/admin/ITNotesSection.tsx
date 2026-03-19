@@ -194,9 +194,13 @@ const ITNotesSection = () => {
       )}
 
       {/* Notes List */}
-      {isLoading && <p className="font-body text-xs text-muted-foreground text-center py-4">Loading...</p>}
+      {isLoading && <p className="font-body text-xs text-muted-foreground text-center py-8">Loading...</p>}
       {!isLoading && notes.length === 0 && !isFormOpen && (
-        <p className="font-body text-xs text-muted-foreground text-center py-4">No IT notes yet</p>
+        <div className="border border-dashed border-border rounded-lg py-10 flex flex-col items-center gap-2">
+          <Monitor className="w-8 h-8 text-muted-foreground/50" />
+          <p className="font-body text-sm text-muted-foreground">No IT notes yet</p>
+          <p className="font-body text-xs text-muted-foreground/70">Tap "Add" to save external tools, credentials & links</p>
+        </div>
       )}
 
       {notes.map(note => (
