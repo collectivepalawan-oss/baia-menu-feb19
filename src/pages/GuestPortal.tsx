@@ -1203,8 +1203,8 @@ const BillView = ({ session }: { session: GuestPortalSession }) => {
     <div className="space-y-4">
       <h2 className="font-display text-lg text-foreground">My Bill</h2>
 
-      {/* Stay Details */}
-      {bookingRoomRate > 0 && (
+      {/* Stay Details — hide for OTA stays since accommodation is prepaid */}
+      {bookingRoomRate > 0 && !guestIsOta && (
         <div className="bg-card border border-border rounded-lg p-4 space-y-1">
           <p className="font-display text-xs tracking-wider text-muted-foreground uppercase">Stay Details</p>
           <div className="flex justify-between">
@@ -1219,6 +1219,12 @@ const BillView = ({ session }: { session: GuestPortalSession }) => {
             <span className="font-body text-sm text-muted-foreground font-medium">Room Total</span>
             <span className="font-body text-sm text-foreground font-medium">₱{(bookingRoomRate * bookingNights).toLocaleString()}</span>
           </div>
+        </div>
+      )}
+      {guestIsOta && (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+          <p className="font-body text-sm text-emerald-400">✓ Accommodation paid via {bookingData.platform}</p>
+          <p className="font-body text-xs text-muted-foreground">Only incidentals (food, tours, etc.) appear on your bill below.</p>
         </div>
       )}
 
