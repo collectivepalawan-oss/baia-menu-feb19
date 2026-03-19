@@ -20,8 +20,11 @@ const PrintBill = ({ unitName, guestName, booking, transactions, roomOrders = []
   const { data: invoiceSettings } = useInvoiceSettings();
 
   const handlePrint = () => {
-    const charges = transactions.filter(t => t.total_amount > 0);
-    const payments = transactions.filter(t => t.total_amount < 0);
+    const otaPlatforms = ['booking.com', 'airbnb', 'agoda', 'expedia', 'hostelworld', 'trip.com'];
+    const isOtaStay = booking?.platform && otaPlatforms.includes(booking.platform.toLowerCase());
+    const visibleTransactions = isOtaStay ? transactions.filter(t => t.transaction_type !== 'accommodation') : transactions;
+    const charges = visibleTransactions.filter(t => t.total_amount > 0);
+    const payments = visibleTransactions.filter(t => t.total_amount < 0);
     const totalCharges = charges.reduce((s, t) => s + t.total_amount, 0);
     const totalPayments = Math.abs(payments.reduce((s, t) => s + t.total_amount, 0));
 
