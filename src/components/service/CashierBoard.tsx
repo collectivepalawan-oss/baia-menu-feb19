@@ -607,7 +607,7 @@ const BillOutPanel = ({
                   key={b.id}
                   onClick={() => onSelectBooking(b)}
                   className={`w-full text-left rounded-xl border-2 p-3 transition-all ${
-                    selectedBooking?.id === b.id
+                    selectedBooking === b.id
                       ? 'border-gold bg-gold/10 text-gold'
                       : 'border-border bg-card text-foreground hover:border-accent/40'
                   }`}
