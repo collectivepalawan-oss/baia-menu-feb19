@@ -1386,6 +1386,11 @@ const PayrollDashboard = ({ readOnly = false }: { readOnly?: boolean }) => {
           </div>
         </div>
       )}
+
+      {/* IT NOTES SUB-VIEW */}
+      {subView === 'it' && (
+        <ITNotesSection />
+      )}
     </div>
   );
 };
