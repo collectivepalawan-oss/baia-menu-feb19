@@ -1,36 +1,37 @@
 
 
-## Plan: Restore "Charge to Room" in Cashier Payment Panel
+## Plan: Fix Schedule Delete & Enhance Task/Assignment Scheduling
 
-### Problem
-The "Charge to Room" option was removed from the Cashier's payment panel (line 584: `{/* Room charging removed from cashier — handled at reception */}`). The cashier needs this option because some resort guests prefer to pay at checkout rather than immediately. The cashier should be able to choose **Pay Now** (Cash, Card, GCash, etc.) OR **Charge to Room** (added to guest folio for checkout settlement).
+### Issues Found
 
-Multiple orders from the same guest/location are already grouped together in the Bill Out section via the `GroupedBillOut` component — this is working correctly.
+1. **Delete button bug**: The trash icon on shift blocks triggers `setDeleteId(s.id)`, but the parent div's `onClick={() => openEdit(s)}` fires simultaneously despite `stopPropagation`. On mobile, the tiny button (3x3 icon) is nearly impossible to tap. The AlertDialog `onOpenChange={() => setDeleteId(null)}` also races with the confirm action.
 
-### Fix: 1 file, 1 change
+2. **Missing scheduling features**: The schedule only manages time shifts. There's no way to assign tasks like housecleaning, reception duty, or track completion from within the schedule view.
 
-**`src/components/service/CashierBoard.tsx`** — BillOutPanel (line 583-585)
+### Changes
 
-Replace the removed comment with the actual "Charge to Room" UI:
-- Add a **"Charge to Room"** button below the payment method grid
-- When selected, show a dropdown/list of active bookings (already fetched via `activeBookings` query on line 97-109)
-- The cashier picks the guest's booking → confirms → order gets `payment_type = 'Charge to Room'`, `room_id`, and `status = 'Paid'`
-- This logic already exists in `handleConfirmPayment` (lines 146-151) — it just needs the UI button restored
+**1. Fix Delete Button** (`WeeklyScheduleManager.tsx`)
+- Make `confirmDelete` capture `deleteId` before the dialog closes by saving it in a ref or local variable
+- Increase touch target size for edit/delete buttons on shift blocks
+- Prevent edit modal from opening when clicking edit/delete icons (the `stopPropagation` exists but the parent click handler on the entire timeline area also fires)
 
-The `chargeToRoom`, `onChargeToRoom`, `activeBookings`, `selectedBooking`, and `onSelectBooking` props are all already wired up and passed to `BillOutPanel` — only the rendering was removed.
+**2. Add Task/Assignment Creation from Schedule** (`WeeklyScheduleManager.tsx`)
+- Add an "Assign Task" button alongside "Add Shift" 
+- New modal to create a task assignment: select employee, pick type (Housecleaning, Reception, Custom), set date/time, add notes
+- For housecleaning: select a room/unit to clean, auto-creates a `housekeeping_orders` entry assigned to the selected employee
+- For other tasks: creates an `employee_tasks` entry with due date and description
+- Tasks appear as colored pills on the timeline (already partially implemented)
 
-### What to add (replacing line 584)
-- A divider with "OR" label
-- A "Charge to Room" button that triggers `onChargeToRoom`
-- When `chargeToRoom` is true, show the list of active bookings (unit name + guest name) as selectable cards
-- Selecting a booking calls `onSelectBooking`
+**3. Show Completion Info on Task Detail** (`WeeklyScheduleManager.tsx`)
+- In the task detail dialog, show who completed the task and when (`completed_at`)
+- For housekeeping pills, show completion status (`cleaning_completed_at`, `completed_by_name`)
+- Make housekeeping pills clickable to show full details (room, status, who inspected/cleaned)
 
-### Result
-Cashier payment panel shows:
-1. Payment method buttons (Cash, Credit Card, etc.)
-2. **OR — Charge to Room** button
-3. When clicked: list of active bookings to select
-4. Confirm → order goes to guest folio, visible in guest portal
+**4. Enhance Task Detail Dialog** (`WeeklyScheduleManager.tsx`)
+- Add edit capability: change title, description, due date, reassign to different employee
+- Add delete capability for tasks
+- Show completion audit trail
 
-No other files need changes. The backend logic, booking query, and confirmation handler are all already in place.
+### Files to Edit
+- `src/components/admin/WeeklyScheduleManager.tsx` — all changes in this single file
 
