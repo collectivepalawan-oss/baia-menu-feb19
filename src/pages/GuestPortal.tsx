@@ -639,6 +639,9 @@ const RequestView = ({ session, qc }: { session: GuestPortalSession; qc: any }) 
       details: details.trim(),
       status: 'pending',
     });
+    import('@/lib/telegram').then(({ notifyTelegram }) => {
+      notifyTelegram('reception,managers', `🛎️ Guest Request\n${session.guest_name}\n${type}: ${details.trim()}`);
+    });
     qc.invalidateQueries({ queryKey: ['guest-requests-admin'] });
     toast.success('Request submitted!');
     setDetails('');
