@@ -146,15 +146,10 @@ const CashierBoard = () => {
 
   // Cashier doesn't need kitchen/bar action handlers — only payment settlement
 
-  // Receipt view
-  if (receiptOrder) {
-    return <CashierReceipt order={receiptOrder} onDone={() => setReceiptOrder(null)} />;
-  }
-
   const activePaymentMethods = paymentMethods.filter(m => m.is_active && m.name !== 'Charge to Room');
 
   // Handle tapping a completed/paid order — show receipt
-  const handleOrderSelect = (order: any) => {
+  const handleOrderSelect = useCallback((order: any) => {
     if (order.status === 'Paid') {
       setReceiptOrder(order);
     } else {
@@ -163,24 +158,28 @@ const CashierBoard = () => {
       setSelectedPayment('');
       setSelectedBooking(null);
     }
-  };
+  }, []);
 
   // Auto-detect in-stay guest for the selected order
   const selectedOrderInStay = useMemo(() => {
     if (!selectedOrder) return null;
-    // Match by room_id first, then by guest_name
     if (selectedOrder.room_id) {
-      return activeBookings.find(b => b.unit_id === selectedOrder.room_id) || null;
+      return activeBookings.find((b: any) => b.unit_id === selectedOrder.room_id) || null;
     }
     if (selectedOrder.guest_name) {
       const name = selectedOrder.guest_name.toLowerCase().trim();
-      return activeBookings.find(b => {
+      return activeBookings.find((b: any) => {
         const guestName = b.resort_ops_guests?.full_name?.toLowerCase()?.trim();
         return guestName && guestName === name;
       }) || null;
     }
     return null;
   }, [selectedOrder, activeBookings]);
+
+  // Receipt view
+  if (receiptOrder) {
+    return <CashierReceipt order={receiptOrder} onDone={() => setReceiptOrder(null)} />;
+  }
 
   return (
     <div className="min-h-0 flex flex-col md:flex-row md:h-full md:overflow-hidden max-w-full">
