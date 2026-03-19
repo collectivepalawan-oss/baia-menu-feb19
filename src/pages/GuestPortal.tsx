@@ -351,6 +351,9 @@ const ToursView = ({ session, qc }: { session: GuestPortalSession; qc: any }) =>
       pickup_time: pickupTime,
       notes: notes.trim(),
     });
+    import('@/lib/telegram').then(({ notifyTelegram }) => {
+      notifyTelegram('tours,managers', `🚐 New Booking\n${session.guest_name}\n${selectedTour.name} - ${date} ${pickupTime}`);
+    });
     qc.invalidateQueries({ queryKey: ['tour-bookings-admin'] });
     toast.success('Tour request submitted! Staff will confirm shortly.');
     setSelectedTour(null);
