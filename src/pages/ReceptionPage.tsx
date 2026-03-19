@@ -654,10 +654,12 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
         await logAudit('created', 'room_transactions', unit.id, `Early check-in fee: ₱${earlyFee.toLocaleString()} for ${guestFullName} in ${unitName}`);
       }
 
-      // ── Auto-post accommodation charge ──
+      // ── Auto-post accommodation charge (skip for OTA-prepaid bookings) ──
       const roomRate = Number(checkInBooking.room_rate) || 0;
       const nights = Math.max(1, Math.ceil((new Date(checkInBooking.check_out).getTime() - new Date(checkInBooking.check_in).getTime()) / 86400000));
-      if (roomRate > 0) {
+      const otaPlatforms = ['booking.com', 'airbnb', 'agoda', 'expedia', 'hostelworld', 'trip.com'];
+      const isOtaBooking = checkInBooking.platform && otaPlatforms.includes(checkInBooking.platform.toLowerCase());
+      if (roomRate > 0 && !isOtaBooking) {
         const accomTotal = nights * roomRate;
         await (from('room_transactions') as any).insert({
           unit_id: unit.id,
