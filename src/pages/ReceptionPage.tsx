@@ -1258,10 +1258,10 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
       )}
 
       {/* ── Tours & Activities Today (with action buttons) ── */}
-      {(todayTours.length > 0 || tourBookings.length > 0) && (
+      {(todayTours.filter((t: any) => t.status !== 'completed' && t.status !== 'cancelled').length > 0 || pendingTourBookings.length > 0 || tourBookings.filter((b: any) => b.status === 'confirmed').length > 0) && (
         <div className="mb-6 space-y-2">
-          <h2 className="font-display text-xs tracking-wider text-muted-foreground uppercase">🏝️ Tours & Activities ({todayTours.length + pendingTourBookings.length})</h2>
-          {todayTours.map((tour: any) => (
+          <h2 className="font-display text-xs tracking-wider text-muted-foreground uppercase">🏝️ Tours & Activities ({todayTours.filter((t: any) => t.status !== 'completed' && t.status !== 'cancelled').length + pendingTourBookings.length + tourBookings.filter((b: any) => b.status === 'confirmed').length})</h2>
+          {todayTours.filter((t: any) => t.status !== 'completed' && t.status !== 'cancelled').map((tour: any) => (
             <div key={tour.id} className="border border-border rounded-lg p-3 space-y-2">
               <div className="flex justify-between items-start">
                 <div>
@@ -1276,13 +1276,13 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
                 </div>
                 <Badge className={`font-body text-xs ${statusColor(tour.status)}`}>{tour.status}</Badge>
               </div>
-              {canDoEdit && tour.status !== 'completed' && tour.status !== 'cancelled' && (
+              {canDoEdit && (
                 <div className="flex gap-2">
                   {tour.status === 'booked' && (
                     <Button size="sm" variant="outline" onClick={() => updateTourStatus(tour.id, 'confirmed', tour)}
                       className="font-display text-xs tracking-wider min-h-[36px]">Confirm</Button>
                   )}
-                  <Button size="sm" onClick={() => updateTourStatus(tour.id, 'completed')}
+                  <Button size="sm" onClick={() => updateTourStatus(tour.id, 'completed', tour)}
                     className="font-display text-xs tracking-wider min-h-[36px]">
                     <CheckCircle className="w-3.5 h-3.5 mr-1" /> Complete
                   </Button>
@@ -1331,7 +1331,7 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
                 <Badge className={`font-body text-xs ${statusColor('confirmed')}`}>confirmed</Badge>
               </div>
               {canDoEdit && (
-                <Button size="sm" onClick={() => completeTourBooking(b.id)}
+                <Button size="sm" onClick={() => completeTourBooking(b)}
                   className="font-display text-xs tracking-wider min-h-[36px]">
                   <CheckCircle className="w-3.5 h-3.5 mr-1" /> Complete
                 </Button>
