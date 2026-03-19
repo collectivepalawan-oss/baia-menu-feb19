@@ -1003,7 +1003,7 @@ const BillView = ({ session }: { session: GuestPortalSession }) => {
   const { data: bookingData, refetch: refetchBooking } = useQuery({
     queryKey: ['guest-bill-agreement', session.booking_id],
     queryFn: async () => {
-      const { data } = await supabase.from('resort_ops_bookings').select('bill_agreed_at, room_rate, check_in, check_out').eq('id', session.booking_id).maybeSingle();
+      const { data } = await supabase.from('resort_ops_bookings').select('bill_agreed_at, room_rate, check_in, check_out, platform, paid_amount').eq('id', session.booking_id).maybeSingle();
       return data as any;
     },
   });
