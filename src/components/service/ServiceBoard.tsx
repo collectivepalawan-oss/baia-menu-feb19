@@ -196,7 +196,14 @@ const ServiceBoard = ({ department }: ServiceBoardProps) => {
         updateData.status = 'Ready';
       }
     } else if (action === 'mark-served') {
-      updateData.status = 'Served';
+      const isTabOrRoom = order.room_id || order.payment_type === 'Charge to Room' || order.tab_id;
+      if (isTabOrRoom) {
+        // Auto-close tab/room orders — they appear on guest folio / cashier tab
+        updateData.status = 'Paid';
+        updateData.closed_at = new Date().toISOString();
+      } else {
+        updateData.status = 'Served';
+      }
     } else if (action === 'mark-paid') {
       updateData.status = 'Paid';
       updateData.closed_at = new Date().toISOString();
