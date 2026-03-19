@@ -801,6 +801,11 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
 
       await logAudit('created', 'units', walkInUnit.id, `Walk-in check-in: ${walkInForm.guestName.trim()} to ${walkInUnit.name}${walkInRate > 0 ? ` — ${walkInNights} nights × ₱${walkInRate.toLocaleString()}` : ''}`);
 
+      // Telegram notification
+      import('@/lib/telegram').then(({ notifyTelegram }) => {
+        notifyTelegram('reception,managers', `🏨 Check-in\n${walkInForm.guestName.trim()} - ${walkInUnit.name}\n${walkInNights} night${walkInNights !== 1 ? 's' : ''}`);
+      });
+
       qc.invalidateQueries({ queryKey: ['rooms-bookings'] });
       qc.invalidateQueries({ queryKey: ['rooms-units'] });
       qc.invalidateQueries({ queryKey: ['room-transactions', walkInUnit.id] });
