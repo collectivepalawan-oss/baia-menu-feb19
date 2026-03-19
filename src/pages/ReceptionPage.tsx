@@ -505,11 +505,31 @@ const ReceptionPage = ({ embedded = false }: { embedded?: boolean }) => {
     toast.success('Tour booking cancelled');
   };
 
-  const completeTourBooking = async (id: string) => {
+  const completeTourBooking = async (b: any) => {
     if (!canDoEdit) { toast.error('View-only access'); return; }
-    await (supabase.from('tour_bookings') as any).update({ status: 'completed' }).eq('id', id);
+    await (supabase.from('tour_bookings') as any).update({ status: 'completed' }).eq('id', b.id);
+
+    // Insert room charge on completion
+    if (Number(b.price) > 0 && b.room_id) {
+      const room = await getRoomInfo(b.room_id);
+      await (supabase.from('room_transactions') as any).insert({
+        unit_id: b.room_id,
+        unit_name: room?.unit_name || '',
+        booking_id: b.booking_id,
+        guest_name: b.guest_name || '',
+        transaction_type: 'tour',
+        amount: Number(b.price),
+        tax_amount: 0,
+        service_charge_amount: 0,
+        total_amount: Number(b.price),
+        payment_method: 'Charge to Room',
+        staff_name: staffName,
+        notes: `Tour: ${b.tour_name} (${b.pax} pax) on ${b.tour_date}${b.pickup_time ? ` pickup ${b.pickup_time}` : ''}`,
+      });
+    }
+
     qc.invalidateQueries({ queryKey: ['reception-tour-bookings'] });
-    toast.success('Tour completed');
+    toast.success('Tour completed & charged to room');
   };
 
   const updateRequestStatus = async (id: string, status: string, req?: any) => {
