@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
-import { deductInventoryForOrder } from '@/lib/inventoryDeduction';
 import { getStaffSession } from '@/lib/session';
 import { toast } from 'sonner';
 import { useResortProfile } from '@/hooks/useResortProfile';
@@ -50,24 +49,19 @@ const CashierBoard = () => {
     return () => { supabase.removeChannel(channel); };
   }, [qc]);
 
-  // Fetch today's orders (active)
+  // Fetch today's Served orders only — Cashier never sees New/Preparing/Ready
   const { data: orders = [] } = useQuery({
     queryKey: ['cashier-orders'],
     queryFn: async () => {
       const start = new Date();
       start.setHours(0, 0, 0, 0);
-      console.log('[CashierBoard] Fetching active orders since:', start.toISOString());
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('orders')
         .select('*')
-        .in('status', ['New', 'Preparing', 'Ready', 'Served'])
+        .eq('status', 'Served')
         .gte('created_at', start.toISOString())
         .order('created_at', { ascending: true })
         .limit(300);
-      console.log('[CashierBoard] Active orders fetched:', data?.length, 'error:', error?.message);
-      if (data?.length) {
-        console.log('[CashierBoard] Order statuses:', data.map(o => `${o.order_type}:${o.status}`).join(', '));
-      }
       return data || [];
     },
     refetchInterval: 5000,
@@ -109,26 +103,8 @@ const CashierBoard = () => {
     },
   });
 
-  // Bucket orders — active only (completed fetched separately)
-  const isAutoPayable = useCallback((o: any) => o.payment_type === 'Charge to Room' || !!o.tab_id, []);
-
-  const buckets = useMemo(() => {
-    const active: any[] = [];
-    const billOut: any[] = [];
-
-    orders.forEach(o => {
-      if (o.status === 'Served') {
-        billOut.push(o);
-      } else if (o.status === 'Ready' && !isAutoPayable(o)) {
-        // Walk-in/dine-in Ready orders go to Bill Out for cashier to collect payment
-        billOut.push(o);
-      } else {
-        active.push(o);
-      }
-    });
-
-    return { active, billOut };
-  }, [orders, isAutoPayable]);
+  // All orders are Served = bill out. No bucket split needed.
+  const billOutOrders = orders;
 
   // Handle payment confirmation
   const handleConfirmPayment = async () => {
@@ -167,58 +143,12 @@ const CashierBoard = () => {
     }
   };
 
-  // Handle order actions — never auto-jump to Paid on serve
-  const handleAction = async (orderId: string, action: string) => {
-    const order = orders.find(o => o.id === orderId);
-    if (!order) return;
-    const updateData: any = {};
-
-    if (action === 'kitchen-start') {
-      updateData.kitchen_status = 'preparing';
-      if (order.status === 'New') updateData.status = 'Preparing';
-      const items = ((order.items as any[]) || []).filter((i: any) => {
-        const d = i.department || 'kitchen';
-        return d === 'kitchen' || d === 'both';
-      });
-      if (items.length > 0) await deductInventoryForOrder(orderId, items, 'kitchen');
-    } else if (action === 'kitchen-ready') {
-      updateData.kitchen_status = 'ready';
-      const barItems = ((order.items as any[]) || []).some((i: any) => i.department === 'bar' || i.department === 'both');
-      if (!barItems || order.bar_status === 'ready') updateData.status = 'Ready';
-    } else if (action === 'bar-start') {
-      updateData.bar_status = 'preparing';
-      if (order.status === 'New') updateData.status = 'Preparing';
-      const items = ((order.items as any[]) || []).filter((i: any) => {
-        const d = i.department || 'kitchen';
-        return d === 'bar' || d === 'both';
-      });
-      if (items.length > 0) await deductInventoryForOrder(orderId, items, 'bar');
-    } else if (action === 'bar-ready') {
-      updateData.bar_status = 'ready';
-      const kitchenItems = ((order.items as any[]) || []).some((i: any) => {
-        const d = i.department || 'kitchen';
-        return d === 'kitchen' || d === 'both';
-      });
-      if (!kitchenItems || order.kitchen_status === 'ready') updateData.status = 'Ready';
-    } else if (action === 'mark-served') {
-      // Cashier always goes to Served — never auto-pay
-      updateData.status = 'Served';
-    }
-
-    await supabase.from('orders').update(updateData).eq('id', orderId);
-    qc.invalidateQueries({ queryKey: ['cashier-orders'] });
-    toast.success('Order updated');
-  };
-
-  // Receipt view
-  if (receiptOrder) {
-    return <CashierReceipt order={receiptOrder} onDone={() => setReceiptOrder(null)} />;
-  }
+  // Cashier doesn't need kitchen/bar action handlers — only payment settlement
 
   const activePaymentMethods = paymentMethods.filter(m => m.is_active && m.name !== 'Charge to Room');
 
   // Handle tapping a completed/paid order — show receipt
-  const handleOrderSelect = (order: any) => {
+  const handleOrderSelect = useCallback((order: any) => {
     if (order.status === 'Paid') {
       setReceiptOrder(order);
     } else {
@@ -227,7 +157,28 @@ const CashierBoard = () => {
       setSelectedPayment('');
       setSelectedBooking(null);
     }
-  };
+  }, []);
+
+  // Auto-detect in-stay guest for the selected order
+  const selectedOrderInStay = useMemo(() => {
+    if (!selectedOrder) return null;
+    if (selectedOrder.room_id) {
+      return activeBookings.find((b: any) => b.unit_id === selectedOrder.room_id) || null;
+    }
+    if (selectedOrder.guest_name) {
+      const name = selectedOrder.guest_name.toLowerCase().trim();
+      return activeBookings.find((b: any) => {
+        const guestName = b.resort_ops_guests?.full_name?.toLowerCase()?.trim();
+        return guestName && guestName === name;
+      }) || null;
+    }
+    return null;
+  }, [selectedOrder, activeBookings]);
+
+  // Receipt view
+  if (receiptOrder) {
+    return <CashierReceipt order={receiptOrder} onDone={() => setReceiptOrder(null)} />;
+  }
 
   return (
     <div className="min-h-0 flex flex-col md:flex-row md:h-full md:overflow-hidden max-w-full">
@@ -236,48 +187,30 @@ const CashierBoard = () => {
         {/* Summary */}
         <div className="flex items-center gap-4 px-4 py-2 border-b border-border bg-card/50 flex-shrink-0">
           <span className="font-display text-sm text-foreground tracking-wider">
-            {buckets.active.length + buckets.billOut.length} Active
+            {billOutOrders.length} Served
           </span>
-          {buckets.billOut.length > 0 && (
+          {billOutOrders.length > 0 && (
             <span className="font-body text-xs text-amber-400 font-bold">
-              {buckets.billOut.length} BILL OUT
+              {billOutOrders.length} BILL OUT
             </span>
           )}
         </div>
 
         <div className="flex-1 md:overflow-y-auto">
-          {/* Bill Out section — grouped by room */}
-          {buckets.billOut.length > 0 && (
+          {/* Bill Out section — all served orders */}
+          {billOutOrders.length > 0 && (
             <div className="p-3">
               <h3 className="font-display text-xs tracking-wider text-amber-400 mb-2 px-1">💰 BILL OUT — Awaiting Payment</h3>
               <GroupedBillOut
-                orders={buckets.billOut}
+                orders={billOutOrders}
                 selectedOrderId={selectedOrder?.id}
                 onSelect={handleOrderSelect}
               />
             </div>
           )}
 
-          {/* Active orders */}
-          {buckets.active.length > 0 && (
-            <div className="p-3">
-              <h3 className="font-display text-xs tracking-wider text-muted-foreground mb-2 px-1">ACTIVE ORDERS</h3>
-              <div className="space-y-2">
-                {buckets.active.map(order => (
-                  <OrderRow
-                    key={order.id}
-                    order={order}
-                    selected={selectedOrder?.id === order.id}
-                    onSelect={() => handleOrderSelect(order)}
-                    onAction={handleAction}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {buckets.active.length === 0 && buckets.billOut.length === 0 && (
-            <p className="font-body text-sm text-muted-foreground text-center py-12">No active orders</p>
+          {billOutOrders.length === 0 && (
+            <p className="font-body text-sm text-muted-foreground text-center py-12">No served orders awaiting payment</p>
           )}
 
           {/* Completed — date picker + stacked cards */}
@@ -333,6 +266,7 @@ const CashierBoard = () => {
             busy={busy}
             onBack={() => setSelectedOrder(null)}
             onPreviewReceipt={() => setReceiptOrder(selectedOrder)}
+            inStayBooking={selectedOrderInStay}
           />
         ) : (
           <DailySummary completed={completedOrders} />
@@ -491,7 +425,7 @@ const OrderRow = ({ order, selected, onSelect, onAction }: {
 const BillOutPanel = ({
   order, paymentMethods, selectedPayment, onSelectPayment,
   chargeToRoom, onChargeToRoom, activeBookings, selectedBooking,
-  onSelectBooking, onConfirm, busy, onBack, onPreviewReceipt
+  onSelectBooking, onConfirm, busy, onBack, onPreviewReceipt, inStayBooking
 }: {
   order: any;
   paymentMethods: any[];
@@ -506,12 +440,14 @@ const BillOutPanel = ({
   busy: boolean;
   onBack: () => void;
   onPreviewReceipt: () => void;
+  inStayBooking: any | null;
 }) => {
   const items = (order.items as any[]) || [];
   const subtotal = items.reduce((s: number, i: any) => s + i.price * (i.qty || i.quantity || 1), 0);
   const sc = Number(order.service_charge || 0);
   const total = subtotal + sc;
 
+  const isInStay = !!inStayBooking;
   const canConfirm = chargeToRoom ? !!selectedBooking : !!selectedPayment;
 
   return (
@@ -532,7 +468,11 @@ const BillOutPanel = ({
         <Button variant="outline" size="sm" onClick={onPreviewReceipt} className="gap-1.5 font-display text-xs tracking-wider">
           <Printer className="w-3.5 h-3.5" /> Preview
         </Button>
-        <Badge variant="outline" className="font-body text-xs">{order.status}</Badge>
+        {isInStay && (
+          <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 font-body text-[10px]">
+            <BedDouble className="w-3 h-3 mr-1" /> In-Stay
+          </Badge>
+        )}
       </div>
 
       {/* Itemized bill */}
@@ -565,7 +505,44 @@ const BillOutPanel = ({
 
         {/* Payment Method Selection */}
         <div className="space-y-3">
-          <p className="font-display text-xs tracking-wider text-muted-foreground">SELECT PAYMENT METHOD</p>
+          {/* In-stay guest: Charge to Room as primary */}
+          {isInStay && (
+            <>
+              {!chargeToRoom ? (
+                <button
+                  onClick={() => { onChargeToRoom(); onSelectBooking(inStayBooking.id); }}
+                  className="w-full min-h-[56px] rounded-xl border-2 border-blue-400 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 font-display text-sm tracking-wider transition-all flex items-center justify-center gap-2"
+                >
+                  <BedDouble className="w-5 h-5" />
+                  Charge to Room — {inStayBooking.resort_ops_units?.name || 'Room'}
+                </button>
+              ) : (
+                <div className="rounded-xl border-2 border-gold bg-gold/10 p-3 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <BedDouble className="w-4 h-4 text-gold" />
+                    <span className="font-display text-sm tracking-wider text-gold">Charging to {inStayBooking.resort_ops_units?.name || 'Room'}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{inStayBooking.resort_ops_guests?.full_name || 'Guest'}</p>
+                  <button
+                    onClick={() => { onSelectPayment(''); }}
+                    className="text-xs text-muted-foreground underline mt-1"
+                  >
+                    Cancel — pay now instead
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 my-2">
+                <Separator className="flex-1" />
+                <span className="text-xs text-muted-foreground font-display tracking-wider">OR PAY NOW</span>
+                <Separator className="flex-1" />
+              </div>
+            </>
+          )}
+
+          <p className="font-display text-xs tracking-wider text-muted-foreground">
+            {isInStay ? 'PAY NOW' : 'SELECT PAYMENT METHOD'}
+          </p>
           <div className="grid grid-cols-2 gap-2">
             {paymentMethods.map(m => (
               <button
@@ -582,47 +559,11 @@ const BillOutPanel = ({
             ))}
           </div>
 
-          <div className="flex items-center gap-2 my-2">
-            <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground font-display tracking-wider">OR</span>
-            <Separator className="flex-1" />
-          </div>
-
-          {!chargeToRoom ? (
-            <button
-              onClick={onChargeToRoom}
-              className="w-full min-h-[52px] rounded-xl border-2 border-border bg-card text-foreground hover:border-accent/40 font-display text-sm tracking-wider transition-all flex items-center justify-center gap-2"
-            >
-              <BedDouble className="w-4 h-4" />
-              Charge to Room
-            </button>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground font-display tracking-wider">SELECT BOOKING</p>
-              {activeBookings.length === 0 && (
-                <p className="text-xs text-muted-foreground italic">No active bookings found</p>
-              )}
-              {activeBookings.map((b: any) => (
-                <button
-                  key={b.id}
-                  onClick={() => onSelectBooking(b.id)}
-                  className={`w-full text-left rounded-xl border-2 p-3 transition-all ${
-                    selectedBooking === b.id
-                      ? 'border-gold bg-gold/10 text-gold'
-                      : 'border-border bg-card text-foreground hover:border-accent/40'
-                  }`}
-                >
-                  <span className="font-display text-sm tracking-wider block">{b.resort_ops_units?.name || 'Unit'}</span>
-                  <span className="text-xs text-muted-foreground">{b.resort_ops_guests?.full_name || 'Guest'}</span>
-                </button>
-              ))}
-              <button
-                onClick={onChargeToRoom}
-                className="text-xs text-muted-foreground underline mt-1"
-              >
-                Cancel — select payment instead
-              </button>
-            </div>
+          {/* Walk-in guest: no Charge to Room option */}
+          {!isInStay && (
+            <p className="font-body text-[10px] text-muted-foreground text-center italic">
+              Guest not found in active bookings — room charging not available
+            </p>
           )}
         </div>
       </div>
@@ -638,7 +579,7 @@ const BillOutPanel = ({
         {busy ? 'Processing…' : (
             <>
               <Check className="w-5 h-5" />
-              {order.status === 'Ready' ? 'Serve & Confirm Payment' : 'Confirm Payment'} — ₱{total.toLocaleString()}
+              Confirm Payment — ₱{total.toLocaleString()}
             </>
           )}
         </Button>
