@@ -188,7 +188,7 @@ const CashierBoard = () => {
               ))}
             </div>
           ) : (
-            <p className="font-body text-sm text-muted-foreground text-center py-12">No served orders awaiting payment</p>
+            <p className="font-body text-sm text-muted-foreground text-center py-12">No orders awaiting settlement</p>
           )}
 
           {/* Completed — date picker + stacked cards */}
