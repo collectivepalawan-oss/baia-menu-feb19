@@ -262,6 +262,7 @@ const OrderRow = ({ order, selected, onSelect }: {
 }) => {
   const elapsed = formatDistanceToNow(new Date(order.created_at), { addSuffix: false });
   const isPaid = order.status === 'Paid';
+  const isReady = order.status === 'Ready';
   const isRoomCharge = order.payment_type === 'Charge to Room';
 
   return (
